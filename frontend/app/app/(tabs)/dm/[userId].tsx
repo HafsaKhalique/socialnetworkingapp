@@ -318,7 +318,7 @@ console.log("EDIT RESPONSE:", data);
                         {new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </Text>
                     )}
-                    {isMe && <Ionicons name="checkmark-done" size={13} color="rgba(255,255,255,0.65)" />}
+                    {/* {isMe && <Ionicons name="checkmark-done" size={13} color="rgba(255,255,255,0.65)" />} */}
                   </View>
                 </>
               )}
@@ -378,12 +378,7 @@ console.log("EDIT RESPONSE:", data);
               <View><View style={styles.skeletonName} /><View style={styles.skeletonHandle} /></View>
             </View>
           )}
-          <TouchableOpacity style={styles.headerBtn}>
-            <Ionicons name="call-outline" size={22} color="#007AFF" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerBtn}>
-            <Ionicons name="videocam-outline" size={24} color="#007AFF" />
-          </TouchableOpacity>
+          
         </View>
 
         {/* MESSAGES */}
@@ -452,15 +447,13 @@ console.log("EDIT RESPONSE:", data);
             </TouchableOpacity>
           </View>
           {/* SEND or MIC — both wired */}
-          {message.trim() ? (
-            <TouchableOpacity onPress={sendMessage} style={styles.sendBtn}>
-              <Ionicons name="send" size={17} color="#fff" />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.sideBtn} onPress={() => showToast("Hold to record voice message")}>
-              <Ionicons name="mic-outline" size={26} color="#007AFF" />
-            </TouchableOpacity>
-          )}
+        <TouchableOpacity
+  onPress={sendMessage}
+  style={[styles.sendBtn, !message.trim() && { opacity: 0.4 }]}
+  disabled={!message.trim()}
+>
+  <Ionicons name="send" size={18} color="#fff" />
+</TouchableOpacity>
         </View>
       </View>
 
