@@ -4,6 +4,11 @@ from datetime import datetime
 
 
 # ── Users ──────────────────────────────────────────────────
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
 class UserCreate(BaseModel):
     username: str
     email: EmailStr
@@ -11,21 +16,25 @@ class UserCreate(BaseModel):
     full_name: str
     university: Optional[str] = None
     department: Optional[str] = None
-    graduation_year: Optional[int] = None
+    bio: Optional[str] = None  # fixed: was Optional[int], should be str
+
 
 class UserUpdate(BaseModel):
+    # All fields optional — only send what changed
     full_name: Optional[str] = None
+    username: Optional[str] = None       # ← added so edit.tsx can update username
     bio: Optional[str] = None
-    avatar_url: Optional[str] = None
+    profile_pic: Optional[str] = None    # ← fixed: was avatar_url, matches User model
     university: Optional[str] = None
     department: Optional[str] = None
+
 
 class UserOut(BaseModel):
     id: str
     username: str
-    full_name: str
+    full_name: Optional[str] = None
     bio: Optional[str] = None
-    avatar_url: Optional[str] = None
+    profile_pic: Optional[str] = None    # ← fixed: was avatar_url
     university: Optional[str] = None
     department: Optional[str] = None
     created_at: datetime
@@ -41,18 +50,25 @@ class TokenPair(BaseModel):
 
 # ── Posts ──────────────────────────────────────────────────
 class PostCreate(BaseModel):
-    content: Optional[str] = None
-    visibility: str = "public"
-    group_id: Optional[str] = None
-    media_urls: Optional[List[str]] = None
-    media_type: Optional[str] = "image"
+    content: str
+    image: Optional[str] = None
+
+
+class PostResponse(BaseModel):
+    id: str
+    username: str
+    content: str
+    image: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 
 class PostOut(BaseModel):
     id: str
     author_id: str
     content: Optional[str] = None
-    visibility: str
-    group_id: Optional[str] = None
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -61,6 +77,7 @@ class PostOut(BaseModel):
 class CommentCreate(BaseModel):
     content: str
     parent_id: Optional[str] = None
+
 
 class CommentOut(BaseModel):
     id: str
@@ -79,6 +96,7 @@ class GroupCreate(BaseModel):
     is_private: bool = False
     university: Optional[str] = None
 
+
 class GroupOut(BaseModel):
     id: str
     name: str
@@ -93,10 +111,12 @@ class GroupOut(BaseModel):
 class ConversationCreate(BaseModel):
     other_user_id: str
 
+
 class ConversationOut(BaseModel):
     id: str
     created_at: datetime
     model_config = {"from_attributes": True}
+
 
 class MessageOut(BaseModel):
     id: str
@@ -116,3 +136,10 @@ class NotificationOut(BaseModel):
     is_read: bool
     created_at: datetime
     model_config = {"from_attributes": True}
+    
+
+# schemas.py
+from pydantic import BaseModel
+
+class MessageUpdate(BaseModel):
+    content: str
