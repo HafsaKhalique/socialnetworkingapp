@@ -369,7 +369,7 @@ console.log("EDIT RESPONSE:", data);
               </View>
               <View>
                 <Text style={styles.headerName} numberOfLines={1}>{otherUser.full_name || otherUser.username}</Text>
-                <Text style={styles.headerStatus}>Active now</Text>
+                {/* <Text style={styles.headerStatus}>Active now</Text> */}
               </View>
             </TouchableOpacity>
           ) : (
@@ -431,9 +431,9 @@ console.log("EDIT RESPONSE:", data);
 
         {/* INPUT BAR */}
         <View style={styles.inputBar}>
-          <TouchableOpacity style={styles.sideBtn}>
+          {/* <TouchableOpacity style={styles.sideBtn}>
             <Ionicons name="camera-outline" size={26} color="#007AFF" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
           <View style={styles.inputPill}>
             <TextInput
               style={styles.input}
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
   headerAvatar: { width: 42, height: 42, borderRadius: 21 },
   headerAvatarFallback: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#007AFF", justifyContent: "center", alignItems: "center" },
   headerAvatarInitial: { color: "#fff", fontSize: 17, fontWeight: "700" },
-  onlineDot: { position: "absolute", bottom: 1, right: 1, width: 12, height: 12, borderRadius: 6, backgroundColor: "#30D158", borderWidth: 2.5, borderColor: "#fff" },
+  onlineDot: { },
   headerName: { fontSize: 15, fontWeight: "700", color: "#0A0A0A", maxWidth: 170 },
   headerStatus: { fontSize: 12, color: "#30D158", fontWeight: "500", marginTop: 1 },
   headerBtn: { padding: 8 },
