@@ -173,7 +173,7 @@ export default function ProfileScreen({ navigation }: any) {
       </SafeAreaView>
     );
   }
-
+const [showDropdown, setShowDropdown] = useState(false);
   const ProfileHeader = () => (
     <View>
       <View style={styles.topBar}>

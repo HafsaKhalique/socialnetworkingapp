@@ -24,7 +24,40 @@ from database import get_db, engine, Base
 from schema import TokenPair, UserCreate, UserUpdate, CommentCreate
 
 
-# ── App & Middleware ──────────────────────────────────────
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from fastapi.responses import HTMLResponse
+
+import re
+import socket
+import smtplib
+import dns.resolver
+
+from sqlalchemy import text
+with engine.connect() as conn:
+    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE;"))
+    conn.commit()
+    
+    
+NU_EMAIL_REGEX = re.compile(r'^l\d{6}@lhr\.nu\.edu\.pk$', re.IGNORECASE)
+
+def validate_nu_email_format(email: str) -> None:
+    if not NU_EMAIL_REGEX.match(email):
+        raise HTTPException(
+            status_code=400,
+            detail="Email must be in the format lXXXXXX@lhr.nu.edu.pk (e.g. l123456@lhr.nu.edu.pk)"
+        )
+
+def create_verification_token(email: str) -> str:
+    expire = datetime.utcnow() + timedelta(hours=24)
+    return jwt.encode({"sub": email, "exp": expire}, SECRET_KEY, algorithm=ALGORITHM)
+
+def decode_verification_token(token: str) -> str:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload.get("sub")   # returns the email
+    except JWTError:
+        return None
+
 
 app = FastAPI()
 
@@ -51,6 +84,18 @@ os.makedirs("uploads/posts", exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
+# mail_config = ConnectionConfig(
+#     MAIL_USERNAME="your_gmail@gmail.com",
+#     MAIL_PASSWORD="your_app_password",   # Gmail App Password, NOT your real password
+#     MAIL_FROM="your_gmail@gmail.com",
+#     MAIL_PORT=587,
+#     MAIL_SERVER="smtp.gmail.com",
+#     MAIL_STARTTLS=True,
+#     MAIL_SSL_TLS=False,
+#     USE_CREDENTIALS=True,
+# )
+
+# fastmail = FastMail(mail_config)
 # ── DB Init ───────────────────────────────────────────────
 
 Base.metadata.create_all(bind=engine)
@@ -101,11 +146,15 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 
 # ── AUTH ──────────────────────────────────────────────────
-
 @app.post("/signup")
 def signup(user: UserCreate, db: Session = Depends(get_db)):
+    validate_nu_email_format(user.email)
+
     if db.query(User).filter(User.username == user.username).first():
-        raise HTTPException(status_code=400, detail="User already exists")
+        raise HTTPException(status_code=400, detail="Username already exists")
+
+    if db.query(User).filter(User.email == user.email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
 
     new_user = User(
         id=str(uuid.uuid4()),
@@ -127,6 +176,25 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Database insertion failed")
 
     return {"message": "User created successfully"}
+@app.get("/verify-email")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    email = decode_verification_token(token)
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.verified:
+        return HTMLResponse("<h2>Email already verified. You can log in!</h2>")
+
+    user.verified = True
+    db.commit()
+
+    return HTMLResponse("<h2>Email verified successfully! You can now log in to NU Connect.</h2>")
+
 
 @app.post("/login", response_model=TokenPair)
 def login(
@@ -138,16 +206,11 @@ def login(
     if not db_user or not verify_password(password, db_user.password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-    access_token = create_access_token(data={"sub": db_user.id})
-    refresh_token = create_access_token(data={"sub": db_user.id}, expires_delta=timedelta(days=7))
+    if not db_user.verified:                          # ← ADD THIS
+        raise HTTPException(status_code=403, detail="Please verify your email before logging in")
 
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "user_id": db_user.id,  # ← add this
-    }
-
+    # ... rest unchanged
+    
 @app.post("/refresh", response_model=TokenPair)
 def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
     try:
