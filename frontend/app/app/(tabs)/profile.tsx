@@ -184,10 +184,10 @@ export default function ProfileScreen({ navigation }: any) {
           </Text>
           <Ionicons name="chevron-down" size={13} color={theme.text} />
         </View>
-// 1. Hamburger menu - add onPress
-<TouchableOpacity onPress={() => router.push("../menu")}>
-  <Ionicons name="menu" size={26} color={theme.text} />
-</TouchableOpacity>      </View>
+        <TouchableOpacity onPress={() => router.push("/menu")}>
+        <Ionicons name="menu" size={26} color={theme.text} />
+    </TouchableOpacity>
+      </View>
 
       <View style={styles.avatarStatsRow}>
         <View style={styles.avatarWrapper}>
@@ -197,9 +197,18 @@ export default function ProfileScreen({ navigation }: any) {
               style={styles.avatar}
             />
           ) : (
-            <View style={[styles.avatar, { backgroundColor: theme.card }]}>
-              <Ionicons name="person" size={36} color={theme.text} />
-            </View>
+           <View
+  style={[
+    styles.avatar,
+    {
+      backgroundColor: "#eee",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+  ]}
+>
+  <Ionicons name="person" size={50} color="#999" />
+</View>
           )}
         </View>
         <View style={styles.statsRow}>
@@ -225,11 +234,7 @@ export default function ProfileScreen({ navigation }: any) {
         )}
       </View>
 
-      {/* <View style={styles.editBtnWrapper}>
-        <TouchableOpacity style={[styles.editBtn, { borderColor: theme.card }]}>
-          <Text style={{ color: theme.text }}>Edit Profile</Text>
-        </TouchableOpacity>
-      </View> */}
+      
 
       <StatusBar barStyle={mode === "dark" ? "light-content" : "dark-content"} />
     </View>

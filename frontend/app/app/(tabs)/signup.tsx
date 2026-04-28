@@ -2,12 +2,18 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-
+import { useFonts } from "expo-font";
 // const API_URL = "https://sda-app-backend.onrender.com";
 const API_URL = "http://127.0.0.1:8000"
 
 export default function Signup() {
   const router = useRouter();
+
+   const [fontsLoaded] = useFonts({
+    Pacifico: require("../../assets/fonts/Pacifico-Regular.ttf"),
+  });
+
+  if (!fontsLoaded) return null;
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -111,12 +117,11 @@ const styles = StyleSheet.create({
     paddingTop: 100,
   },
   logo: {
-    color: "black",
-    fontSize: 40,
-    fontWeight: "bold",
-    fontStyle: "italic",
-    marginBottom: 40,
-  },
+  fontFamily: "Pacifico",
+  fontSize: 42,
+  color: "black",
+  marginBottom: 40,
+},
   input: {
     width: "85%",
     padding: 12,
