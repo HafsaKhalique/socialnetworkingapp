@@ -1,77 +1,81 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity } from "react-native"
+import { View, Text, StyleSheet, TextInput, TouchableOpacity } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-const API_URL = "http://192.168.100.22:8000";
-
 import React, { useState } from "react";
+import { useRouter } from "expo-router";
 
+const API_URL = "https://sda-app-backend.onrender.com"; // ✅ use deployed URL, not local IP
 
 export default function HomePage() {
-
+  const router = useRouter();
   const [username, setUsername] = useState("");
-const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("");
 
-const handleLogin = async () => {
-  try {
-    const response = await fetch(`${API_URL}/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        username: username,
-        password: password,
-      }),
-    });
+  const handleLogin = async () => {
+    try {
+      // ✅ CRITICAL FIX: your backend uses OAuth2 which requires form-encoded data, NOT JSON
+      const formData = new URLSearchParams();
+      formData.append("username", username);
+      formData.append("password", password);
 
-    const data = await response.json();
+      const response = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded", // ✅ must be this, not application/json
+        },
+        body: formData.toString(),
+      });
 
-    if (!response.ok) {
-      alert(data.detail || "Login failed");
-      return;
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.detail || "Login failed");
+        return;
+      }
+
+      // ✅ Save token, refresh token, and user id
+      await AsyncStorage.setItem("token", data.access_token);
+      await AsyncStorage.setItem("refresh_token", data.refresh_token);
+      await AsyncStorage.setItem("user", JSON.stringify({ id: data.user_id }));
+
+      console.log("Login success:", data);
+
+      // ✅ Navigate to app after login
+      router.replace("/(tabs)");
+
+    } catch (error) {
+      console.log("Error:", error);
+      alert("Something went wrong");
     }
-
-  
-    await AsyncStorage.setItem("access_token", data.access_token);
-    await AsyncStorage.setItem("refresh_token", data.refresh_token);
-
-    console.log("Login success:", data);
-  } catch (error) {
-    console.log("Error:", error);
-    alert("Something went wrong");
-  }
-};
-
+  };
 
   return (
-    
     <View style={styles.container}>
       <Text style={styles.logo}>Unifi</Text>
 
-     <TextInput
-  placeholder="Username"
-  style={styles.input}
-  value={username}
-  onChangeText={setUsername}
-/>
+      <TextInput
+        placeholder="Username"
+        style={styles.input}
+        value={username}
+        onChangeText={setUsername}
+        autoCapitalize="none"
+      />
 
-<TextInput
-  placeholder="Password"
-  style={styles.input}
-  secureTextEntry
-  value={password}
-  onChangeText={setPassword}
-/>
-      {/* FIX: Wrap in View so text-align right works correctly */}
+      <TextInput
+        placeholder="Password"
+        style={styles.input}
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
+
       <View style={styles.forgotWrapper}>
         <Text style={styles.forgot}>Forgot password?</Text>
       </View>
 
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
-  <Text style={styles.buttonText}>Log in</Text>
-</TouchableOpacity>
+        <Text style={styles.buttonText}>Log in</Text>
+      </TouchableOpacity>
 
-      {/* FIX: OR divider with lines */}
       <View style={styles.orWrapper}>
         <View style={styles.line} />
         <Text style={styles.or}>OR</Text>
@@ -83,7 +87,7 @@ const handleLogin = async () => {
         <Text style={{ color: "#40a6d8" }}>Sign up.</Text>
       </Text>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -97,7 +101,7 @@ const styles = StyleSheet.create({
     color: "black",
     fontSize: 40,
     fontWeight: "bold",
-    fontStyle: "italic",       // FIX: logo looks italic/script in design
+    fontStyle: "italic",
     marginBottom: 50,
   },
   input: {
@@ -108,10 +112,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 10,
   },
-  // FIX: wrapper View makes textAlign work correctly
   forgotWrapper: {
     width: "85%",
-    alignItems: "flex-end",    // aligns the Text child to the right
+    alignItems: "flex-end",
     marginBottom: 10,
     marginTop: -2,
   },
@@ -130,7 +133,6 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "600",
   },
-  // FIX: OR with horizontal lines on both sides
   orWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -150,4 +152,4 @@ const styles = StyleSheet.create({
   signup: {
     color: "#555",
   },
-})
+});

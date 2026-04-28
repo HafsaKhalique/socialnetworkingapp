@@ -42,6 +42,7 @@ type Post = {
 type User = {
   id: string;
   username: string;
+  email?: string; // ✅ added
   full_name?: string;
   bio?: string;
   profile_pic?: string;
@@ -68,11 +69,12 @@ export default function ProfileScreen({ navigation }: any) {
   const [following, setFollowing] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem("access_token");
-      if (!token) return; // ✅ don't redirect to login
+      if (!token) return;
 
       const payload = decodeToken(token);
       const userId = payload?.sub;
@@ -113,7 +115,6 @@ export default function ProfileScreen({ navigation }: any) {
     }, [])
   );
 
-  // ─── POST TILE ───────────────────────────────────────
   function PostTile({ post }: { post: Post }) {
     const firstImage = post.images?.[0]?.image_url;
 
@@ -135,7 +136,6 @@ export default function ProfileScreen({ navigation }: any) {
           )}
         </TouchableOpacity>
 
-        {/* ── Options button ── */}
         <TouchableOpacity
           style={styles.tileOptionsBtn}
           activeOpacity={0.7}
@@ -173,21 +173,100 @@ export default function ProfileScreen({ navigation }: any) {
       </SafeAreaView>
     );
   }
-const [showDropdown, setShowDropdown] = useState(false);
+
   const ProfileHeader = () => (
     <View>
       <View style={styles.topBar}>
-        <View style={styles.topBarLeft}>
+        <TouchableOpacity
+          style={styles.topBarLeft}
+          onPress={() => setShowDropdown(!showDropdown)}
+          activeOpacity={0.7}
+        >
           <Ionicons name="lock-closed" size={13} color={theme.text} />
           <Text style={[styles.topUsername, { color: theme.text }]}>
             {user?.username ?? ""}
           </Text>
-          <Ionicons name="chevron-down" size={13} color={theme.text} />
-        </View>
+          <Ionicons
+            name={showDropdown ? "chevron-up" : "chevron-down"}
+            size={13}
+            color={theme.text}
+          />
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push("/menu")}>
-        <Ionicons name="menu" size={26} color={theme.text} />
-    </TouchableOpacity>
+          <Ionicons name="menu" size={26} color={theme.text} />
+        </TouchableOpacity>
       </View>
+
+      {/* ── Dropdown card ── */}
+      {showDropdown && (
+        <View
+          style={[
+            styles.dropdown,
+            { backgroundColor: theme.card, borderColor: theme.text + "22" },
+          ]}
+        >
+          {/* Avatar + Full Name + Username */}
+          <View style={styles.dropdownRow}>
+            {user?.profile_pic ? (
+              <Image
+                source={{ uri: `${API_URL}${user.profile_pic}` }}
+                style={styles.dropdownAvatar}
+              />
+            ) : (
+              <View
+                style={[
+                  styles.dropdownAvatar,
+                  { backgroundColor: "#eee", justifyContent: "center", alignItems: "center" },
+                ]}
+              >
+                <Ionicons name="person" size={22} color="#999" />
+              </View>
+            )}
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              {user?.full_name && (
+                <Text style={[styles.dropdownFullName, { color: theme.text }]}>
+                  {user.full_name}
+                </Text>
+              )}
+              <Text style={[styles.dropdownUsername, { color: theme.text + "99" }]}>
+                @{user?.username}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.dropdownDivider} />
+
+          {/* Email */}
+          {user?.email && (
+            <View style={styles.dropdownItem}>
+              <Ionicons name="mail-outline" size={15} color={theme.text + "99"} />
+              <Text style={[styles.dropdownText, { color: theme.text }]}>
+                {user.email}
+              </Text>
+            </View>
+          )}
+
+          {/* Department / University */}
+          {(user?.department || user?.university) && (
+            <View style={styles.dropdownItem}>
+              <Ionicons name="school-outline" size={15} color={theme.text + "99"} />
+              <Text style={[styles.dropdownText, { color: theme.text }]}>
+                {[user.department, user.university].filter(Boolean).join(" · ")}
+              </Text>
+            </View>
+          )}
+
+          {/* Bio */}
+          {user?.bio && (
+            <View style={styles.dropdownItem}>
+              <Ionicons name="information-circle-outline" size={15} color={theme.text + "99"} />
+              <Text style={[styles.dropdownText, { color: theme.text }]}>
+                {user.bio}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       <View style={styles.avatarStatsRow}>
         <View style={styles.avatarWrapper}>
@@ -197,18 +276,14 @@ const [showDropdown, setShowDropdown] = useState(false);
               style={styles.avatar}
             />
           ) : (
-           <View
-  style={[
-    styles.avatar,
-    {
-      backgroundColor: "#eee",
-      justifyContent: "center",
-      alignItems: "center",
-    },
-  ]}
->
-  <Ionicons name="person" size={50} color="#999" />
-</View>
+            <View
+              style={[
+                styles.avatar,
+                { backgroundColor: "#eee", justifyContent: "center", alignItems: "center" },
+              ]}
+            >
+              <Ionicons name="person" size={50} color="#999" />
+            </View>
           )}
         </View>
         <View style={styles.statsRow}>
@@ -220,21 +295,15 @@ const [showDropdown, setShowDropdown] = useState(false);
 
       <View style={styles.bioSection}>
         {user?.full_name && (
-          <Text style={[styles.fullName, { color: theme.text }]}>
-            {user.full_name}
-          </Text>
+          <Text style={[styles.fullName, { color: theme.text }]}>{user.full_name}</Text>
         )}
         {(user?.department || user?.university) && (
           <Text style={{ color: theme.text }}>
             {[user.department, user.university].filter(Boolean).join(" · ")}
           </Text>
         )}
-        {user?.bio && (
-          <Text style={{ color: theme.text }}>{user.bio}</Text>
-        )}
+        {user?.bio && <Text style={{ color: theme.text }}>{user.bio}</Text>}
       </View>
-
-      
 
       <StatusBar barStyle={mode === "dark" ? "light-content" : "dark-content"} />
     </View>
@@ -338,5 +407,56 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.45)",
     borderRadius: 12,
     padding: 3,
+  },
+  dropdown: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    padding: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  dropdownRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  dropdownAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  dropdownFullName: {
+    fontWeight: "700",
+    fontSize: 15,
+    marginBottom: 2,
+  },
+  dropdownUsername: {
+    fontSize: 13,
+  },
+  dropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  dropdownText: {
+    fontSize: 13,
+    flex: 1,
+  },
+  dropdownDivider: {
+    height: 0.5,
+    backgroundColor: "#00000022",
+    marginBottom: 10,
+  },
+  dropdownStats: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  dropdownStat: {
+    alignItems: "center",
   },
 });

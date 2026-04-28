@@ -206,10 +206,15 @@ def login(
     if not db_user or not verify_password(password, db_user.password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-    if not db_user.verified:                          # ← ADD THIS
-        raise HTTPException(status_code=403, detail="Please verify your email before logging in")
+    access_token = create_access_token(data={"sub": db_user.id})
+    refresh_token = create_access_token(data={"sub": db_user.id}, expires_delta=timedelta(days=7))
 
-    # ... rest unchanged
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user_id": db_user.id,  # ← add this
+    }  # ... rest unchanged
     
 @app.post("/refresh", response_model=TokenPair)
 def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
@@ -981,3 +986,52 @@ def delete_message(message_id: int, db: Session = Depends(get_db), current_user=
     db.commit()
 
     return {"message": "deleted"}
+
+
+@app.delete("/users/{user_id}")
+def delete_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Only allow deleting your own account
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not allowed to delete another user's account")
+ 
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+ 
+    # Delete all related data first (avoid FK constraint errors)
+    db.query(PostLike).filter(PostLike.user_id == user_id).delete()
+    db.query(Comment).filter(Comment.author_id == user_id).delete()
+ 
+    # Delete user's post images and posts
+    user_posts = db.query(Post).filter(Post.author_id == user_id).all()
+    for post in user_posts:
+        db.query(PostImage).filter(PostImage.post_id == post.id).delete()
+        db.query(PostLike).filter(PostLike.post_id == post.id).delete()
+        db.query(Comment).filter(Comment.post_id == post.id).delete()
+    db.query(Post).filter(Post.author_id == user_id).delete()
+ 
+    # Delete follow relationships
+    db.query(Follow).filter(
+        (Follow.follower_id == user_id) | (Follow.following_id == user_id)
+    ).delete()
+ 
+    # Delete conversation participations and messages
+    participations = db.query(ConversationParticipant).filter(
+        ConversationParticipant.user_id == user_id
+    ).all()
+    for p in participations:
+        db.query(Message).filter(Message.conversation_id == p.conversation_id).delete()
+        db.query(ConversationParticipant).filter(
+            ConversationParticipant.conversation_id == p.conversation_id
+        ).delete()
+        db.query(Conversation).filter(Conversation.id == p.conversation_id).delete()
+ 
+    # Finally delete the user
+    db.delete(user)
+    db.commit()
+ 
+    return {"message": "Account deleted successfully"}
