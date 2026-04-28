@@ -1,62 +1,48 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage";
-// const API_URL = "https://sda-app-backend.onrender.com";
-const API_URL = "http://127.0.0.1:8000"
-import React, { useState } from "react";
-import { useRouter } from "expo-router";
 
+const API_URL = "http://192.168.100.22:8000";
+
+import React, { useState } from "react";
 
 
 export default function HomePage() {
-  const router = useRouter();
+
   const [username, setUsername] = useState("");
 const [password, setPassword] = useState("");
 
-
 const handleLogin = async () => {
   try {
-    console.log("🔵 Logging in...");
-
-    // 1. Use FormData instead of a plain object
-    const formData = new FormData();
-    formData.append("username", username);
-    formData.append("password", password);
-
     const response = await fetch(`${API_URL}/login`, {
       method: "POST",
-      // 2. IMPORTANT: Remove "Content-Type": "application/json"
-      // When sending FormData, the browser/app sets the boundary automatically
-      body: formData, 
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username: username,
+        password: password,
+      }),
     });
 
-    console.log(" Status:", response.status);
-    const text = await response.text();
-    console.log(" Raw response:", text);
-
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      alert("Server did not return JSON");
-      return;
-    }
+    const data = await response.json();
 
     if (!response.ok) {
       alert(data.detail || "Login failed");
       return;
     }
 
+  
     await AsyncStorage.setItem("access_token", data.access_token);
     await AsyncStorage.setItem("refresh_token", data.refresh_token);
 
-    console.log("✅ Login success");
-    router.replace("/profile");
-
+    console.log("Login success:", data);
   } catch (error) {
-    console.log("❌ Error:", error);
+    console.log("Error:", error);
     alert("Something went wrong");
   }
 };
+
+
   return (
     
     <View style={styles.container}>
@@ -94,12 +80,7 @@ const handleLogin = async () => {
 
       <Text style={styles.signup}>
         Don't have an account?{" "}
-        <Text
-    style={{ color: "#40a6d8" }}
-    onPress={() => router.push("/signup")}
-  >
-    Sign up.
-  </Text>
+        <Text style={{ color: "#40a6d8" }}>Sign up.</Text>
       </Text>
     </View>
   )
