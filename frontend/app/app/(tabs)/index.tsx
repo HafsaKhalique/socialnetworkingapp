@@ -1,8 +1,11 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // const API_URL = "https://sda-app-backend.onrender.com";
-const API_URL = "http://127.0.0.1:8000"
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
+
+
+const API_URL = "http://192.168.56.1:8000"
+// import React, { useState } from "react";
 import { useRouter } from "expo-router";
 
 
@@ -10,7 +13,7 @@ import { useRouter } from "expo-router";
 export default function HomePage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
-const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("");
 
 
 const handleLogin = async () => {
@@ -29,9 +32,9 @@ const handleLogin = async () => {
       body: formData, 
     });
 
-    console.log(" Status:", response.status);
+    // console.log(" Status:", response.status);
     const text = await response.text();
-    console.log(" Raw response:", text);
+    // console.log(" Raw response:", text);
 
     let data;
     try {

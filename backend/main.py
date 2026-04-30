@@ -33,9 +33,13 @@ import smtplib
 import dns.resolver
 
 from sqlalchemy import text
-with engine.connect() as conn:
-    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE;"))
-    conn.commit()
+
+
+
+
+# with engine.connect() as conn:
+#     conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE;"))
+#     conn.commit()
     
     
 NU_EMAIL_REGEX = re.compile(r'^l\d{6}@lhr\.nu\.edu\.pk$', re.IGNORECASE)
@@ -51,6 +55,8 @@ def create_verification_token(email: str) -> str:
     expire = datetime.utcnow() + timedelta(hours=24)
     return jwt.encode({"sub": email, "exp": expire}, SECRET_KEY, algorithm=ALGORITHM)
 
+
+
 def decode_verification_token(token: str) -> str:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -63,15 +69,16 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8081",
-        "http://127.0.0.1:8081",  # ✅ add this
-        "http://127.0.0.1:8082",
-        "http://localhost:8000",
-        "http://localhost:8082",
-        "https://sda-front-end-xhiu.vercel.app"
+    allow_origins=["*"],
+    # allow_origins=[
+    #     "http://localhost:8081",
+    #     "http://127.0.0.1:8081",  # ✅ add this
+    #     "http://127.0.0.1:8082",
+    #     "http://localhost:8000",
+    #     "http://localhost:8082",
+    #     "https://sda-front-end-xhiu.vercel.app"
         
-    ],
+    # ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -176,24 +183,27 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Database insertion failed")
 
     return {"message": "User created successfully"}
-@app.get("/verify-email")
-def verify_email(token: str, db: Session = Depends(get_db)):
-    email = decode_verification_token(token)
 
-    if not email:
-        raise HTTPException(status_code=400, detail="Invalid or expired verification link")
 
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
 
-    if user.verified:
-        return HTMLResponse("<h2>Email already verified. You can log in!</h2>")
+# @app.get("/verify-email")
+# def verify_email(token: str, db: Session = Depends(get_db)):
+#     email = decode_verification_token(token)
 
-    user.verified = True
-    db.commit()
+#     if not email:
+#         raise HTTPException(status_code=400, detail="Invalid or expired verification link")
 
-    return HTMLResponse("<h2>Email verified successfully! You can now log in to NU Connect.</h2>")
+#     user = db.query(User).filter(User.email == email).first()
+#     if not user:
+#         raise HTTPException(status_code=404, detail="User not found")
+
+#     if user.verified:
+#         return HTMLResponse("<h2>Email already verified. You can log in!</h2>")
+
+#     user.verified = True
+#     db.commit()
+
+#     return HTMLResponse("<h2>Email verified successfully! You can now log in to NU Connect.</h2>")
 
 
 @app.post("/login", response_model=TokenPair)
@@ -213,14 +223,15 @@ def login(
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "user_id": db_user.id,  # ← add this
-    }  # ... rest unchanged
+        "user_id": db_user.id,  
+    }  
     
 @app.post("/refresh", response_model=TokenPair)
 def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
+        
         if user_id is None:
             raise HTTPException(status_code=401, detail="Invalid refresh token")
     except JWTError:
@@ -678,7 +689,7 @@ def get_chats(
         {
             "user_id": user.id,
             "username": user.username,
-            "profile_pic": f"https://sda-app-backend.onrender.com{user.profile_pic}" if user.profile_pic else None,
+            "profile_pic": f"http://127.0.0.1:8000{user.profile_pic}" if user.profile_pic else None,
             "last_message": "Start chatting 👋",
             "timestamp": None,
         }
@@ -828,26 +839,6 @@ def get_conversation_messages(conversation_id: str, db: Session = Depends(get_db
         for m in messages
     ]
 
-# @app.post("/conversations/{conversation_id}")
-# def get_conversation_messages(
-#     conversation_id: str,
-#     db: Session = Depends(get_db),
-#     current_user: User = Depends(get_current_user),
-# ):
-#     messages = db.query(Message).filter(
-#         Message.conversation_id == conversation_id
-#     ).order_by(Message.created_at.asc()).all()
-
-#     return [
-#         {
-#             "id": m.id,
-#             "content": m.content,
-#             "sender_id": m.sender_id,
-#             "created_at": m.created_at,
-#         }
-#         for m in messages
-#     ]
-
 @app.post("/conversations")
 def create_conversation(
     user_id: str = Form(...),
@@ -933,6 +924,8 @@ def create_or_get_conversation(
     db.commit()
 
     return {"conversation_id": conversation.id}
+
+
 
 @app.delete("/messages/{message_id}")
 def delete_message(

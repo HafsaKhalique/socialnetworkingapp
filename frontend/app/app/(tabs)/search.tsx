@@ -5,17 +5,19 @@ import {
   Image,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
+
   StatusBar,
   TextInput,
 } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
 import { useTheme } from "../../context/ThemeContext";
 
-const API_URL = "http://127.0.0.1:8000";
+// const API_URL = "http://192.168.100.22:8000"
+const API_URL = "http://192.168.56.1:8000"
 
 // ─── SEARCH ITEM ───────────────────────────────────────
 function SearchItem({ item, theme, onPress }: any) {
@@ -70,7 +72,7 @@ export default function SearchScreen() {
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
-
+const insets = useSafeAreaInsets();
   const handleSearch = async (text: string) => {
     setQuery(text);
 
@@ -101,15 +103,16 @@ export default function SearchScreen() {
 
       {/* NAVBAR */}
       <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          padding: 10,
-          borderBottomWidth: 1,
-          borderColor: theme.card,
-          backgroundColor: theme.background,
-        }}
-      >
+  style={{
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    paddingTop: insets.top + 10, // ✅ FIX
+    borderBottomWidth: 1,
+    borderColor: theme.card,
+    backgroundColor: theme.background,
+  }}
+>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>

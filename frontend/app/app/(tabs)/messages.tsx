@@ -18,7 +18,8 @@ from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
-const BASE_URL = "http://127.0.0.1:8000";
+const BASE_URL  = "http://192.168.56.1:8000"
+
 
 interface ChatUser {
   user_id: string;

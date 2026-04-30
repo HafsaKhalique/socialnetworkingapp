@@ -19,7 +19,8 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useTheme } from "../../../context/ThemeContext";
 
-const API_URL = "http://127.0.0.1:8000";
+// const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://10.104.114.50:8000"
 
 function decodeToken(token: string) {
   try {

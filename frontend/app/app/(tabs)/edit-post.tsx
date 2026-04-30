@@ -17,8 +17,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
+const API_URL = "http://192.168.56.1:8000"
 
-const API_URL = "http://127.0.0.1:8000";
+// const API_URL = "http://127.0.0.1:8000";
 
 export default function EditPostScreen() {
   const router = useRouter();

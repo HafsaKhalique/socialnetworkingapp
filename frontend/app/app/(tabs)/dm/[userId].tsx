@@ -19,11 +19,12 @@ import {
   ScrollView,
   Clipboard,
 } from "react-native";
+import { useTheme } from "../../../context/ThemeContext";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { decode as atob } from "base-64";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://10.104.114.50:8000";
 
 const EMOJI_LIST = [
   "😀","😂","🥰","😍","🤩","😎","🥳","😭","😤","🤔",
@@ -44,6 +45,8 @@ function getUserIdFromToken(token: string): string | null {
 export default function ChatScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
+  const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
 
   const conversationId = Array.isArray(params.conversationId)
     ? params.conversationId[0] : params.conversationId;
@@ -78,6 +81,58 @@ export default function ChatScreen() {
   const paramsReady =
     conversationId && conversationId !== "undefined" &&
     token && token !== "undefined";
+
+  // ─── Derived theme colors ─────────────────────────────────────────────────
+  const colors = {
+    // Backgrounds
+    screenBg:       theme.background       ?? (isDark ? "#0F0F0F" : "#F6F6F6"),
+    headerBg:       theme.card             ?? (isDark ? "#1C1C1E" : "#FFFFFF"),
+    inputBarBg:     theme.card             ?? (isDark ? "#1C1C1E" : "#FFFFFF"),
+    sheetBg:        theme.card             ?? (isDark ? "#1C1C1E" : "#FFFFFF"),
+    inputPillBg:    theme.inputBackground  ?? (isDark ? "#2C2C2E" : "#F2F2F7"),
+    editInputBg:    theme.inputBackground  ?? (isDark ? "#2C2C2E" : "#F2F2F7"),
+    previewBg:      theme.surface          ?? (isDark ? "#2C2C2E" : "#F7F7F9"),
+    cancelBtnBg:    theme.inputBackground  ?? (isDark ? "#2C2C2E" : "#F2F2F7"),
+    emojiPickerBg:  theme.card             ?? (isDark ? "#1C1C1E" : "#FFFFFF"),
+    skeletonBg:     theme.border           ?? (isDark ? "#3A3A3C" : "#EBEBEB"),
+
+    // Text
+    primaryText:    theme.text             ?? (isDark ? "#FFFFFF" : "#0A0A0A"),
+    secondaryText:  theme.textSecondary    ?? (isDark ? "#ABABAB" : "#888888"),
+    placeholderText:theme.placeholder      ?? (isDark ? "#636366" : "#B0B0B0"),
+    cancelTxt:      theme.textSecondary    ?? (isDark ? "#ABABAB" : "#555555"),
+    previewTxt:     theme.text             ?? (isDark ? "#DDDDDD" : "#333333"),
+
+    // Borders / separators
+    separator:      theme.border           ?? (isDark ? "#2C2C2E" : "#EBEBEB"),
+
+    // Accent / brand
+    accent:         theme.primary          ?? "#007AFF",
+    danger:         theme.error            ?? "#FF3B30",
+
+    // Bubbles
+    bubbleMeBg:     theme.primary          ?? "#007AFF",
+    bubbleOtherBg:  theme.card             ?? (isDark ? "#2C2C2E" : "#FFFFFF"),
+    bubbleMeText:   "#FFFFFF",
+    bubbleOtherText:theme.text             ?? (isDark ? "#FFFFFF" : "#111111"),
+    bubbleMetaMe:   "rgba(255,255,255,0.6)",
+    bubbleMetaOther:theme.textSecondary    ?? (isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)"),
+    editedMe:       "rgba(255,255,255,0.5)",
+    editedOther:    theme.textSecondary    ?? (isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.3)"),
+
+    // Toast
+    toastBg:        isDark ? "rgba(255,255,255,0.15)" : "rgba(20,20,20,0.78)",
+    toastText:      "#FFFFFF",
+
+    // Tile icon backgrounds
+    tileIconCopy:   isDark ? "#0A2A3A" : "#F0F9FF",
+    tileIconEdit:   isDark ? "#0A1A3A" : "#EEF4FF",
+    tileIconDelete: isDark ? "#3A0A0A" : "#FFF1F0",
+    tileIconCopyClr:"#0EA5E9",
+    tileIconEditClr:theme.primary ?? "#007AFF",
+    tileIconDelClr: theme.error   ?? "#FF3B30",
+  };
+  // ─────────────────────────────────────────────────────────────────────────
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -178,7 +233,6 @@ export default function ChatScreen() {
     } catch {}
   };
 
-  // Long press works for ALL messages — own shows Edit+Delete+Copy, other shows Copy only
   const handleLongPress = (item: any) => {
     setSelectedMsg(item);
     openSheet();
@@ -208,7 +262,6 @@ export default function ChatScreen() {
 
   const handleEdit = () => {
     const target = selectedMsg;
-    // Close sheet FIRST, then open inline editor after sheet finishes
     closeSheet(() => setTimeout(() => {
       setEditingMsgId(target.id);
       setEditText(target.text);
@@ -227,9 +280,6 @@ export default function ChatScreen() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ content: trimmed }),
       });
-      console.log("EDIT STATUS:", res.status);
-const data = await res.text();
-console.log("EDIT RESPONSE:", data);
       if (res.ok) {
         setMessages(p => p.map(m => m.id === id ? { ...m, text: trimmed, edited: true } : m));
         showToast("Message updated ✓");
@@ -267,7 +317,7 @@ console.log("EDIT RESPONSE:", data);
                     style={styles.avatarSmall}
                   />
                 ) : (
-                  <View style={[styles.avatarSmall, styles.avatarFallback]}>
+                  <View style={[styles.avatarSmall, { backgroundColor: colors.accent, justifyContent: "center", alignItems: "center" }]}>
                     <Text style={styles.avatarInitial}>
                       {(otherUser?.full_name || otherUser?.username || "?")[0].toUpperCase()}
                     </Text>
@@ -278,30 +328,32 @@ console.log("EDIT RESPONSE:", data);
 
             <View style={[
               styles.bubble,
-              isMe ? styles.bubbleMe : styles.bubbleOther,
-              isEditing && styles.bubbleEditing,
+              isMe
+                ? [styles.bubbleMe, { backgroundColor: colors.bubbleMeBg }]
+                : [styles.bubbleOther, { backgroundColor: colors.bubbleOtherBg }],
+              isEditing && [styles.bubbleEditing, { backgroundColor: colors.headerBg, borderColor: colors.accent }],
             ]}>
               {isEditing ? (
                 <View style={styles.editWrap}>
                   <View style={styles.editHeader}>
-                    <Ionicons name="pencil" size={12} color="#007AFF" />
-                    <Text style={styles.editHeaderTxt}>Editing</Text>
+                    <Ionicons name="pencil" size={12} color={colors.accent} />
+                    <Text style={[styles.editHeaderTxt, { color: colors.accent }]}>Editing</Text>
                   </View>
                   <TextInput
-                    style={styles.editInput}
+                    style={[styles.editInput, { color: colors.primaryText, backgroundColor: colors.editInputBg }]}
                     value={editText}
                     onChangeText={setEditText}
                     autoFocus
                     multiline
-                    selectionColor="#007AFF"
+                    selectionColor={colors.accent}
                   />
                   <View style={styles.editActions}>
                     <TouchableOpacity onPress={cancelEdit} style={styles.editCancelBtn}>
-                      <Text style={styles.editCancelTxt}>Cancel</Text>
+                      <Text style={[styles.editCancelTxt, { color: colors.secondaryText }]}>Cancel</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={submitEdit}
-                      style={[styles.editSaveBtn, !editText.trim() && { opacity: 0.4 }]}
+                      style={[styles.editSaveBtn, { backgroundColor: colors.accent }, !editText.trim() && { opacity: 0.4 }]}
                       disabled={!editText.trim()}
                     >
                       <Text style={styles.editSaveTxt}>Save</Text>
@@ -310,15 +362,20 @@ console.log("EDIT RESPONSE:", data);
                 </View>
               ) : (
                 <>
-                  <Text style={isMe ? styles.textMe : styles.textOther}>{item.text}</Text>
+                  <Text style={{ color: isMe ? colors.bubbleMeText : colors.bubbleOtherText, fontSize: 15.5, lineHeight: 21 }}>
+                    {item.text}
+                  </Text>
                   <View style={styles.metaRow}>
-                    {item.edited && <Text style={isMe ? styles.editedMe : styles.editedOther}>edited</Text>}
+                    {item.edited && (
+                      <Text style={{ color: isMe ? colors.editedMe : colors.editedOther, fontSize: 10, fontStyle: "italic" }}>
+                        edited
+                      </Text>
+                    )}
                     {item.created_at && (
-                      <Text style={isMe ? styles.timeMe : styles.timeOther}>
+                      <Text style={{ color: isMe ? colors.bubbleMetaMe : colors.bubbleMetaOther, fontSize: 11 }}>
                         {new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </Text>
                     )}
-                    {/* {isMe && <Ionicons name="checkmark-done" size={13} color="rgba(255,255,255,0.65)" />} */}
                   </View>
                 </>
               )}
@@ -329,8 +386,16 @@ console.log("EDIT RESPONSE:", data);
     );
   };
 
-  if (error) return <View style={styles.centered}><Text style={{ color: "#FF3B30", textAlign: "center", padding: 20 }}>{error}</Text></View>;
-  if (loading) return <View style={styles.centered}><ActivityIndicator size="large" color="#007AFF" /></View>;
+  if (error) return (
+    <View style={[styles.centered, { backgroundColor: colors.screenBg }]}>
+      <Text style={{ color: colors.danger, textAlign: "center", padding: 20 }}>{error}</Text>
+    </View>
+  );
+  if (loading) return (
+    <View style={[styles.centered, { backgroundColor: colors.screenBg }]}>
+      <ActivityIndicator size="large" color={colors.accent} />
+    </View>
+  );
 
   const sheetTranslateY = sheetAnim.interpolate({ inputRange: [0, 1], outputRange: [340, 0] });
   const isOwnMsg = selectedMsg?.sender === "me";
@@ -341,13 +406,16 @@ console.log("EDIT RESPONSE:", data);
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <View style={styles.container}>
+      <StatusBar
+        barStyle={isDark ? "light-content" : "dark-content"}
+        backgroundColor={colors.headerBg}
+      />
+      <View style={[styles.container, { backgroundColor: colors.screenBg }]}>
 
         {/* HEADER */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.headerBg, borderBottomColor: colors.separator }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={26} color="#007AFF" />
+            <Ionicons name="chevron-back" size={26} color={colors.accent} />
           </TouchableOpacity>
           {otherUser ? (
             <TouchableOpacity activeOpacity={0.75} style={styles.headerCenter}>
@@ -359,7 +427,7 @@ console.log("EDIT RESPONSE:", data);
                     style={styles.headerAvatar}
                   />
                 ) : (
-                  <View style={styles.headerAvatarFallback}>
+                  <View style={[styles.headerAvatarFallback, { backgroundColor: colors.accent }]}>
                     <Text style={styles.headerAvatarInitial}>
                       {(otherUser.full_name || otherUser.username || "?")[0].toUpperCase()}
                     </Text>
@@ -368,17 +436,20 @@ console.log("EDIT RESPONSE:", data);
                 <View style={styles.onlineDot} />
               </View>
               <View>
-                <Text style={styles.headerName} numberOfLines={1}>{otherUser.full_name || otherUser.username}</Text>
-                {/* <Text style={styles.headerStatus}>Active now</Text> */}
+                <Text style={[styles.headerName, { color: colors.primaryText }]} numberOfLines={1}>
+                  {otherUser.full_name || otherUser.username}
+                </Text>
               </View>
             </TouchableOpacity>
           ) : (
             <View style={styles.headerCenter}>
-              <View style={[styles.headerAvatarFallback, { backgroundColor: "#EBEBEB" }]} />
-              <View><View style={styles.skeletonName} /><View style={styles.skeletonHandle} /></View>
+              <View style={[styles.headerAvatarFallback, { backgroundColor: colors.skeletonBg }]} />
+              <View>
+                <View style={[styles.skeletonName, { backgroundColor: colors.skeletonBg }]} />
+                <View style={[styles.skeletonHandle, { backgroundColor: colors.skeletonBg }]} />
+              </View>
             </View>
           )}
-          
         </View>
 
         {/* MESSAGES */}
@@ -395,25 +466,25 @@ console.log("EDIT RESPONSE:", data);
           keyboardShouldPersistTaps="handled"
         />
 
-        {/* SCROLL FAB — Instagram-style */}
+        {/* SCROLL FAB */}
         {showScrollBtn && (
           <Animated.View style={[styles.scrollFab, { opacity: scrollBtnOpacity, transform: [{ scale: scrollBtnScale }] }]}>
             <TouchableOpacity onPress={scrollToBottom} activeOpacity={0.8} style={styles.scrollFabInner}>
               {unreadCount > 0 && (
-                <View style={styles.unreadPill}>
+                <View style={[styles.unreadPill, { backgroundColor: colors.danger }]}>
                   <Text style={styles.unreadPillTxt}>{unreadCount > 99 ? "99+" : unreadCount} new</Text>
                 </View>
               )}
-              <View style={styles.scrollFabIcon}>
+              <View style={[styles.scrollFabIcon, { backgroundColor: colors.accent }]}>
                 <Ionicons name="chevron-down" size={20} color="#fff" />
               </View>
             </TouchableOpacity>
           </Animated.View>
         )}
 
-        {/* EMOJI PICKER — fully working */}
+        {/* EMOJI PICKER */}
         {showEmoji && (
-          <View style={styles.emojiPicker}>
+          <View style={[styles.emojiPicker, { backgroundColor: colors.emojiPickerBg, borderTopColor: colors.separator }]}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emojiRow}>
               {EMOJI_LIST.map(e => (
                 <TouchableOpacity key={e} onPress={() => insertEmoji(e)} style={styles.emojiItem}>
@@ -425,41 +496,40 @@ console.log("EDIT RESPONSE:", data);
         )}
 
         {/* INPUT BAR */}
-        <View style={styles.inputBar}>
-          {/* <TouchableOpacity style={styles.sideBtn}>
-            <Ionicons name="camera-outline" size={26} color="#007AFF" />
-          </TouchableOpacity> */}
-          <View style={styles.inputPill}>
+        <View style={[styles.inputBar, { backgroundColor: colors.inputBarBg, borderTopColor: colors.separator }]}>
+          <View style={[styles.inputPill, { backgroundColor: colors.inputPillBg }]}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.primaryText }]}
               placeholder="Message…"
-              placeholderTextColor="#B0B0B0"
+              placeholderTextColor={colors.placeholderText}
               value={message}
               onChangeText={setMessage}
               multiline
               blurOnSubmit={false}
-              selectionColor="#007AFF"
+              selectionColor={colors.accent}
               onFocus={() => setShowEmoji(false)}
             />
-            {/* EMOJI BUTTON — toggles picker */}
             <TouchableOpacity style={styles.emojiToggleBtn} onPress={() => setShowEmoji(v => !v)}>
-              <Ionicons name={showEmoji ? "happy" : "happy-outline"} size={22} color={showEmoji ? "#007AFF" : "#B0B0B0"} />
+              <Ionicons
+                name={showEmoji ? "happy" : "happy-outline"}
+                size={22}
+                color={showEmoji ? colors.accent : colors.placeholderText}
+              />
             </TouchableOpacity>
           </View>
-          {/* SEND or MIC — both wired */}
-        <TouchableOpacity
-  onPress={sendMessage}
-  style={[styles.sendBtn, !message.trim() && { opacity: 0.4 }]}
-  disabled={!message.trim()}
->
-  <Ionicons name="send" size={18} color="#fff" />
-</TouchableOpacity>
+          <TouchableOpacity
+            onPress={sendMessage}
+            style={[styles.sendBtn, { backgroundColor: colors.accent }, !message.trim() && { opacity: 0.4 }]}
+            disabled={!message.trim()}
+          >
+            <Ionicons name="send" size={18} color="#fff" />
+          </TouchableOpacity>
         </View>
       </View>
 
       {/* TOAST */}
-      <Animated.View style={[styles.toast, { opacity: toastAnim }]} pointerEvents="none">
-        <Text style={styles.toastTxt}>{toast}</Text>
+      <Animated.View style={[styles.toast, { opacity: toastAnim, backgroundColor: colors.toastBg }]} pointerEvents="none">
+        <Text style={[styles.toastTxt, { color: colors.toastText }]}>{toast}</Text>
       </Animated.View>
 
       {/* ACTION SHEET */}
@@ -467,45 +537,47 @@ console.log("EDIT RESPONSE:", data);
         <TouchableWithoutFeedback onPress={() => closeSheet()}>
           <Animated.View style={[styles.overlay, { opacity: sheetBgAnim }]}>
             <TouchableWithoutFeedback>
-              <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetTranslateY }] }]}>
-                <View style={styles.sheetHandle} />
+              <Animated.View style={[styles.sheet, { backgroundColor: colors.sheetBg, transform: [{ translateY: sheetTranslateY }] }]}>
+                <View style={[styles.sheetHandle, { backgroundColor: colors.separator }]} />
                 {selectedMsg && (
-                  <View style={styles.preview}>
-                    <View style={styles.previewAccent} />
-                    <Text style={styles.previewTxt} numberOfLines={2}>{selectedMsg.text}</Text>
+                  <View style={[styles.preview, { backgroundColor: colors.previewBg }]}>
+                    <View style={[styles.previewAccent, { backgroundColor: colors.accent }]} />
+                    <Text style={[styles.previewTxt, { color: colors.previewTxt }]} numberOfLines={2}>
+                      {selectedMsg.text}
+                    </Text>
                   </View>
                 )}
                 <View style={styles.tilesRow}>
                   {/* COPY — everyone */}
                   <TouchableOpacity style={styles.tile} onPress={handleCopy}>
-                    <View style={[styles.tileIcon, { backgroundColor: "#F0F9FF" }]}>
-                      <Ionicons name="copy-outline" size={22} color="#0EA5E9" />
+                    <View style={[styles.tileIcon, { backgroundColor: colors.tileIconCopy }]}>
+                      <Ionicons name="copy-outline" size={22} color={colors.tileIconCopyClr} />
                     </View>
-                    <Text style={styles.tileLabel}>Copy</Text>
+                    <Text style={[styles.tileLabel, { color: colors.primaryText }]}>Copy</Text>
                   </TouchableOpacity>
 
                   {/* EDIT — own only */}
                   {isOwnMsg && (
                     <TouchableOpacity style={styles.tile} onPress={handleEdit}>
-                      <View style={[styles.tileIcon, { backgroundColor: "#EEF4FF" }]}>
-                        <Ionicons name="pencil" size={22} color="#007AFF" />
+                      <View style={[styles.tileIcon, { backgroundColor: colors.tileIconEdit }]}>
+                        <Ionicons name="pencil" size={22} color={colors.tileIconEditClr} />
                       </View>
-                      <Text style={styles.tileLabel}>Edit</Text>
+                      <Text style={[styles.tileLabel, { color: colors.primaryText }]}>Edit</Text>
                     </TouchableOpacity>
                   )}
 
                   {/* DELETE — own only */}
                   {isOwnMsg && (
                     <TouchableOpacity style={styles.tile} onPress={handleDelete}>
-                      <View style={[styles.tileIcon, { backgroundColor: "#FFF1F0" }]}>
-                        <Ionicons name="trash-outline" size={22} color="#FF3B30" />
+                      <View style={[styles.tileIcon, { backgroundColor: colors.tileIconDelete }]}>
+                        <Ionicons name="trash-outline" size={22} color={colors.tileIconDelClr} />
                       </View>
-                      <Text style={[styles.tileLabel, { color: "#FF3B30" }]}>Delete</Text>
+                      <Text style={[styles.tileLabel, { color: colors.danger }]}>Delete</Text>
                     </TouchableOpacity>
                   )}
                 </View>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => closeSheet()}>
-                  <Text style={styles.cancelTxt}>Cancel</Text>
+                <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: colors.cancelBtnBg }]} onPress={() => closeSheet()}>
+                  <Text style={[styles.cancelTxt, { color: colors.cancelTxt }]}>Cancel</Text>
                 </TouchableOpacity>
               </Animated.View>
             </TouchableWithoutFeedback>
@@ -517,81 +589,73 @@ console.log("EDIT RESPONSE:", data);
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F6F6F6" },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F6F6F6" },
+  container:          { flex: 1 },
+  centered:           { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
-    flexDirection: "row", alignItems: "center", backgroundColor: "#fff",
+    flexDirection: "row", alignItems: "center",
     paddingTop: Platform.OS === "ios" ? 56 : 18, paddingBottom: 12,
     paddingHorizontal: 8, gap: 4,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#EBEBEB",
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 3,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 4, elevation: 3,
   },
-  backBtn: { padding: 6 },
-  headerCenter: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, marginLeft: 2 },
-  avatarWrapper: { position: "relative" },
-  headerAvatar: { width: 42, height: 42, borderRadius: 21 },
-  headerAvatarFallback: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#007AFF", justifyContent: "center", alignItems: "center" },
+  backBtn:             { padding: 6 },
+  headerCenter:        { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, marginLeft: 2 },
+  avatarWrapper:       { position: "relative" },
+  headerAvatar:        { width: 42, height: 42, borderRadius: 21 },
+  headerAvatarFallback:{ width: 42, height: 42, borderRadius: 21, justifyContent: "center", alignItems: "center" },
   headerAvatarInitial: { color: "#fff", fontSize: 17, fontWeight: "700" },
-  onlineDot: { },
-  headerName: { fontSize: 15, fontWeight: "700", color: "#0A0A0A", maxWidth: 170 },
-  headerStatus: { fontSize: 12, color: "#30D158", fontWeight: "500", marginTop: 1 },
-  headerBtn: { padding: 8 },
-  skeletonName: { width: 100, height: 12, borderRadius: 6, backgroundColor: "#EBEBEB", marginBottom: 5 },
-  skeletonHandle: { width: 70, height: 10, borderRadius: 5, backgroundColor: "#EBEBEB" },
-  bubbleRow: { flexDirection: "row", alignItems: "flex-end", marginVertical: 3 },
-  rowMe: { justifyContent: "flex-end" },
-  rowOther: { justifyContent: "flex-start", gap: 7 },
-  avatarSmallWrap: { width: 30, alignItems: "center" },
-  avatarSmall: { width: 27, height: 27, borderRadius: 14 },
-  avatarFallback: { backgroundColor: "#007AFF", justifyContent: "center", alignItems: "center" },
-  avatarInitial: { color: "#fff", fontSize: 11, fontWeight: "700" },
-  bubble: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8, borderRadius: 22, maxWidth: "77%" },
-  bubbleMe: { backgroundColor: "#007AFF", borderBottomRightRadius: 5, shadowColor: "#007AFF", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 7, elevation: 4 },
-  bubbleOther: { backgroundColor: "#fff", borderBottomLeftRadius: 5, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 1 },
-  bubbleEditing: { backgroundColor: "#fff", minWidth: 220, borderWidth: 1.5, borderColor: "#007AFF" },
-  textMe: { color: "#fff", fontSize: 15.5, lineHeight: 21 },
-  textOther: { color: "#111", fontSize: 15.5, lineHeight: 21 },
-  metaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 5, justifyContent: "flex-end" },
-  editedMe: { color: "rgba(255,255,255,0.5)", fontSize: 10, fontStyle: "italic" },
-  editedOther: { color: "rgba(0,0,0,0.3)", fontSize: 10, fontStyle: "italic" },
-  timeMe: { color: "rgba(255,255,255,0.6)", fontSize: 11 },
-  timeOther: { color: "rgba(0,0,0,0.35)", fontSize: 11 },
-  editWrap: { minWidth: 210 },
-  editHeader: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 6 },
-  editHeaderTxt: { fontSize: 11, fontWeight: "700", color: "#007AFF", letterSpacing: 0.3 },
-  editInput: { color: "#111", fontSize: 15.5, backgroundColor: "#F2F2F7", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, minHeight: 42, maxHeight: 120 },
-  editActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 10 },
-  editCancelBtn: { paddingHorizontal: 12, paddingVertical: 6 },
-  editCancelTxt: { color: "#888", fontSize: 14, fontWeight: "600" },
-  editSaveBtn: { backgroundColor: "#007AFF", borderRadius: 14, paddingHorizontal: 18, paddingVertical: 6 },
-  editSaveTxt: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  scrollFab: { position: "absolute", bottom: 88, right: 16, zIndex: 99, alignItems: "center" },
-  scrollFabInner: { alignItems: "center" },
-  unreadPill: { backgroundColor: "#FF3B30", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 6, shadowColor: "#FF3B30", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 5 },
-  unreadPillTxt: { color: "#fff", fontSize: 11, fontWeight: "800" },
-  scrollFabIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#007AFF", alignItems: "center", justifyContent: "center", shadowColor: "#007AFF", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.38, shadowRadius: 10, elevation: 8 },
-  emojiPicker: { backgroundColor: "#fff", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#EBEBEB", paddingVertical: 8 },
-  emojiRow: { paddingHorizontal: 10, gap: 2 },
-  emojiItem: { padding: 6 },
-  emojiChar: { fontSize: 26 },
-  inputBar: { flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 8, paddingVertical: 10, paddingBottom: Platform.OS === "ios" ? 28 : 10, backgroundColor: "#fff", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#EBEBEB", gap: 6 },
-  sideBtn: { padding: 6, paddingBottom: 9 },
-  inputPill: { flex: 1, flexDirection: "row", alignItems: "flex-end", backgroundColor: "#F2F2F7", borderRadius: 24, paddingHorizontal: 14, minHeight: 42 },
-  input: { flex: 1, fontSize: 15.5, color: "#111", paddingVertical: 10, maxHeight: 110 },
-  emojiToggleBtn: { paddingBottom: 10, paddingLeft: 6 },
-  sendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#007AFF", alignItems: "center", justifyContent: "center", shadowColor: "#007AFF", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.32, shadowRadius: 7, elevation: 5, marginBottom: 1 },
-  toast: { position: "absolute", bottom: 96, alignSelf: "center", backgroundColor: "rgba(20,20,20,0.78)", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 24, zIndex: 999 },
-  toastTxt: { color: "#fff", fontSize: 13.5, fontWeight: "600" },
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.42)", justifyContent: "flex-end" },
-  sheet: { backgroundColor: "#fff", borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingTop: 10, paddingHorizontal: 20, paddingBottom: Platform.OS === "ios" ? 44 : 28 },
-  sheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: "#DDD", alignSelf: "center", marginBottom: 18 },
-  preview: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "#F7F7F9", borderRadius: 14, padding: 14, marginBottom: 20 },
-  previewAccent: { width: 3, borderRadius: 2, backgroundColor: "#007AFF", marginTop: 2, alignSelf: "stretch" },
-  previewTxt: { flex: 1, fontSize: 14.5, color: "#333", lineHeight: 20 },
-  tilesRow: { flexDirection: "row", gap: 12, marginBottom: 18 },
-  tile: { flex: 1, alignItems: "center", gap: 7 },
-  tileIcon: { width: 60, height: 60, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  tileLabel: { fontSize: 12.5, fontWeight: "600", color: "#333" },
-  cancelBtn: { backgroundColor: "#F2F2F7", borderRadius: 16, paddingVertical: 15, alignItems: "center" },
-  cancelTxt: { fontSize: 16, fontWeight: "600", color: "#555" },
+  onlineDot:           {},
+  headerName:          { fontSize: 15, fontWeight: "700", maxWidth: 170 },
+  headerBtn:           { padding: 8 },
+  skeletonName:        { width: 100, height: 12, borderRadius: 6, marginBottom: 5 },
+  skeletonHandle:      { width: 70, height: 10, borderRadius: 5 },
+  bubbleRow:           { flexDirection: "row", alignItems: "flex-end", marginVertical: 3 },
+  rowMe:               { justifyContent: "flex-end" },
+  rowOther:            { justifyContent: "flex-start", gap: 7 },
+  avatarSmallWrap:     { width: 30, alignItems: "center" },
+  avatarSmall:         { width: 27, height: 27, borderRadius: 14 },
+  avatarInitial:       { color: "#fff", fontSize: 11, fontWeight: "700" },
+  bubble:              { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8, borderRadius: 22, maxWidth: "77%" },
+  bubbleMe:            { borderBottomRightRadius: 5, shadowColor: "#007AFF", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 7, elevation: 4 },
+  bubbleOther:         { borderBottomLeftRadius: 5, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 1 },
+  bubbleEditing:       { minWidth: 220, borderWidth: 1.5 },
+  metaRow:             { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 5, justifyContent: "flex-end" },
+  editWrap:            { minWidth: 210 },
+  editHeader:          { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 6 },
+  editHeaderTxt:       { fontSize: 11, fontWeight: "700", letterSpacing: 0.3 },
+  editInput:           { fontSize: 15.5, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, minHeight: 42, maxHeight: 120 },
+  editActions:         { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 10 },
+  editCancelBtn:       { paddingHorizontal: 12, paddingVertical: 6 },
+  editCancelTxt:       { fontSize: 14, fontWeight: "600" },
+  editSaveBtn:         { borderRadius: 14, paddingHorizontal: 18, paddingVertical: 6 },
+  editSaveTxt:         { color: "#fff", fontSize: 14, fontWeight: "700" },
+  scrollFab:           { position: "absolute", bottom: 88, right: 16, zIndex: 99, alignItems: "center" },
+  scrollFabInner:      { alignItems: "center" },
+  unreadPill:          { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 6, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 5 },
+  unreadPillTxt:       { color: "#fff", fontSize: 11, fontWeight: "800" },
+  scrollFabIcon:       { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.38, shadowRadius: 10, elevation: 8 },
+  emojiPicker:         { borderTopWidth: StyleSheet.hairlineWidth, paddingVertical: 8 },
+  emojiRow:            { paddingHorizontal: 10, gap: 2 },
+  emojiItem:           { padding: 6 },
+  emojiChar:           { fontSize: 26 },
+  inputBar:            { flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 8, paddingVertical: 10, paddingBottom: Platform.OS === "ios" ? 28 : 10, borderTopWidth: StyleSheet.hairlineWidth, gap: 6 },
+  inputPill:           { flex: 1, flexDirection: "row", alignItems: "flex-end", borderRadius: 24, paddingHorizontal: 14, minHeight: 42 },
+  input:               { flex: 1, fontSize: 15.5, paddingVertical: 10, maxHeight: 110 },
+  emojiToggleBtn:      { paddingBottom: 10, paddingLeft: 6 },
+  sendBtn:             { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.32, shadowRadius: 7, elevation: 5, marginBottom: 1 },
+  toast:               { position: "absolute", bottom: 96, alignSelf: "center", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 24, zIndex: 999 },
+  toastTxt:            { fontSize: 13.5, fontWeight: "600" },
+  overlay:             { flex: 1, backgroundColor: "rgba(0,0,0,0.42)", justifyContent: "flex-end" },
+  sheet:               { borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingTop: 10, paddingHorizontal: 20, paddingBottom: Platform.OS === "ios" ? 44 : 28 },
+  sheetHandle:         { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 18 },
+  preview:             { flexDirection: "row", alignItems: "flex-start", gap: 10, borderRadius: 14, padding: 14, marginBottom: 20 },
+  previewAccent:       { width: 3, borderRadius: 2, marginTop: 2, alignSelf: "stretch" },
+  previewTxt:          { flex: 1, fontSize: 14.5, lineHeight: 20 },
+  tilesRow:            { flexDirection: "row", gap: 12, marginBottom: 18 },
+  tile:                { flex: 1, alignItems: "center", gap: 7 },
+  tileIcon:            { width: 60, height: 60, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  tileLabel:           { fontSize: 12.5, fontWeight: "600" },
+  cancelBtn:           { borderRadius: 16, paddingVertical: 15, alignItems: "center" },
+  cancelTxt:           { fontSize: 16, fontWeight: "600" },
 });

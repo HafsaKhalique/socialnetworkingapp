@@ -1,10 +1,10 @@
 import React from "react";
 import {
-  View,
   Text,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  View,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -34,26 +34,33 @@ export default function MenuScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}>
-      <Text style={[styles.heading, { color: theme.text }]}>Menu</Text>
+      <View style={styles.inner}>
+        <Text style={[styles.heading, { color: theme.text }]}>Menu</Text>
 
-      {options.map((item) => (
-        <TouchableOpacity
-          key={item.label}
-          style={[styles.row, { borderBottomColor: theme.card }]}
-          onPress={() => router.push(item.route as any)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name={item.icon as any} size={22} color={theme.text} />
-          <Text style={[styles.label, { color: theme.text }]}>{item.label}</Text>
-          <Ionicons name="chevron-forward" size={18} color={theme.subtext} />
-        </TouchableOpacity>
-      ))}
+        {options.map((item) => (
+          <TouchableOpacity
+            key={item.label}
+            style={[styles.row, { borderBottomColor: theme.card }]}
+            onPress={() => router.push(item.route as any)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name={item.icon as any} size={22} color={theme.text} />
+            <Text style={[styles.label, { color: theme.text }]}>{item.label}</Text>
+            <Ionicons name="chevron-forward" size={18} color={theme.subtext} />
+          </TouchableOpacity>
+        ))}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, padding: 20 },
+  screen: { flex: 1 },
+  inner: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+  },
   heading: {
     fontSize: 24,
     fontWeight: "700",

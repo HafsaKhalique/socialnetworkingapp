@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "bffdd770-5080-4581-af62-073867687896"
+      }
+    },
+    "android": {
+      "package": "com.ammara_ubaid.social_networking_app_project"
+    }
+  }
+}

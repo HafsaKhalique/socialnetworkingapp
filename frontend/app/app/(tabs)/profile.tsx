@@ -11,10 +11,9 @@ import {
   RefreshControl,
   Dimensions,
   StatusBar,
-  SafeAreaView,
   Image,
 } from "react-native";
-
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { decode as atob } from "base-64";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,7 +21,7 @@ import { useRouter } from "expo-router";
 
 import { useTheme } from "../../context/ThemeContext";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://192.168.56.1:8000"
 
 const { width } = Dimensions.get("window");
 const TILE_SIZE = (width - 3) / 3;
@@ -62,7 +61,7 @@ function decodeToken(token: string) {
 export default function ProfileScreen({ navigation }: any) {
   const router = useRouter();
   const { theme, mode } = useTheme();
-
+const insets = useSafeAreaInsets();
   const [user, setUser] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [followers, setFollowers] = useState<any[]>([]);
@@ -310,7 +309,13 @@ export default function ProfileScreen({ navigation }: any) {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+    <SafeAreaView
+  style={{
+    flex: 1,
+    backgroundColor: theme.background,
+    paddingTop: insets.top,   // 👈 THIS FIXES YOUR ISSUE
+  }}
+>
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id}
