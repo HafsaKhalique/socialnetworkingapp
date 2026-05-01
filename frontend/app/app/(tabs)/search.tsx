@@ -17,7 +17,7 @@ import { useRouter } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
 
 // const API_URL = "http://192.168.100.22:8000"
-const API_URL = "http://192.168.56.1:8000"
+const API_URL = "http://192.168.100.22:8000"
 
 // ─── SEARCH ITEM ───────────────────────────────────────
 function SearchItem({ item, theme, onPress }: any) {

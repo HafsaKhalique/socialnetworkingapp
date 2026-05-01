@@ -8,9 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { decode as atob } from "base-64";
-// const API_URL = "http://192.168.100.22:8000"
-// const API_URL = "https://sda-app-backend.onrender.com";
-const API_URL = "http://192.168.56.1:8000"
+const API_URL = "http://127.0.0.1:8000";
 
 // ─── SHARE MODAL ───────────────────────────────────────
 function ShareModal({
@@ -140,11 +138,7 @@ function ShareModal({
       onRequestClose={onClose}
       onShow={loadMutuals}
     >
-      <TouchableOpacity
-        style={styles.modalOverlay}
-        activeOpacity={1}
-        onPress={onClose}
-      >
+      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
         <TouchableOpacity activeOpacity={1} style={[styles.modalSheet, { backgroundColor: theme.background }]}>
           <View style={[styles.handleBar, { backgroundColor: theme.card }]} />
 
@@ -211,20 +205,13 @@ function ShareModal({
                       )}
                     </View>
                     <View style={styles.mutualInfo}>
-                      <Text style={[styles.mutualUsername, { color: theme.text }]}>
-                        @{item.username}
-                      </Text>
+                      <Text style={[styles.mutualUsername, { color: theme.text }]}>@{item.username}</Text>
                       {item.full_name && (
-                        <Text style={[styles.mutualFullName, { color: theme.subtext }]}>
-                          {item.full_name}
-                        </Text>
+                        <Text style={[styles.mutualFullName, { color: theme.subtext }]}>{item.full_name}</Text>
                       )}
                     </View>
                     <TouchableOpacity
-                      style={[
-                        styles.sendBtn,
-                        { backgroundColor: isSent ? theme.card : "#6C63FF" },
-                      ]}
+                      style={[styles.sendBtn, { backgroundColor: isSent ? theme.card : "#6C63FF" }]}
                       onPress={() => !isSent && handleSend(item.id)}
                       disabled={isSending || isSent}
                     >
@@ -247,12 +234,83 @@ function ShareModal({
   );
 }
 
+// ─── FULLSCREEN IMAGE MODAL ────────────────────────────
+const imageModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.95)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fullImage: {
+    width: "100%",
+    height: "80%",
+  },
+  closeBtn: {
+    position: "absolute",
+    top: 52,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 20,
+    padding: 8,
+  },
+});
+
+// ─── COMMENT STYLES ────────────────────────────────────
+const commentStyles = StyleSheet.create({
+  section: {
+    marginTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 10,
+  },
+  commentRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: 6,
+  },
+  commentUser: {
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  commentText: {
+    fontSize: 13,
+    flexShrink: 1,
+  },
+  noComments: {
+    fontSize: 13,
+    textAlign: "center",
+    marginVertical: 8,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  input: {
+    flex: 1,
+    fontSize: 13,
+    maxHeight: 80,
+  },
+});
+
 // ─── POST CARD ─────────────────────────────────────────
 function PostCard({ item, theme }: { item: any; theme: any }) {
   const [isLiked, setIsLiked] = useState(item.is_liked);
   const [likesCount, setLikesCount] = useState(item.likes_count);
   const [liking, setLiking] = useState(false);
   const [shareVisible, setShareVisible] = useState(false);
+  const [imageVisible, setImageVisible] = useState(false);
+  // ── comment state ──
+  const [commentsVisible, setCommentsVisible] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [postingComment, setPostingComment] = useState(false);
 
   const handleLike = async () => {
     if (liking) return;
@@ -278,6 +336,64 @@ function PostCard({ item, theme }: { item: any; theme: any }) {
       setLiking(false);
     }
   };
+
+  // ── comment functions ──
+  const loadComments = async () => {
+    setLoadingComments(true);
+    try {
+      const token = await AsyncStorage.getItem("access_token");
+      const res = await fetch(`${API_URL}/posts/${item.id}/comments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      const withUsers = await Promise.all(
+        data.map(async (c: any) => {
+          try {
+            const uRes = await fetch(`${API_URL}/users/id/${c.author_id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const u = await uRes.json();
+            return { ...c, username: u.username };
+          } catch {
+            return { ...c, username: "unknown" };
+          }
+        })
+      );
+      setComments(withUsers);
+    } catch (e) {
+      console.log("Comments error:", e);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const handlePostComment = async () => {
+    if (!commentText.trim()) return;
+    setPostingComment(true);
+    try {
+      const token = await AsyncStorage.getItem("access_token");
+      const res = await fetch(`${API_URL}/posts/${item.id}/comment`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ content: commentText.trim(), parent_id: null }),
+      });
+      if (res.ok) {
+        setCommentText("");
+        loadComments();
+      }
+    } catch (e) {
+      Alert.alert("Error", "Could not post comment.");
+    } finally {
+      setPostingComment(false);
+    }
+  };
+
+  const imageUri = item.image
+    ? item.image.startsWith("http") ? item.image : `${API_URL}${item.image}`
+    : null;
 
   return (
     <View style={[styles.post, { borderColor: theme.card, backgroundColor: theme.card }]}>
@@ -305,12 +421,11 @@ function PostCard({ item, theme }: { item: any; theme: any }) {
         <Text style={[styles.content, { color: theme.text }]}>{item.content}</Text>
       ) : null}
 
-      {item.image && (
-        <Image
-          source={{ uri: item.image.startsWith("http") ? item.image : `${API_URL}${item.image}` }}
-          style={styles.image}
-          resizeMode="cover"
-        />
+      {/* IMAGE — tap to open fullscreen */}
+      {imageUri && (
+        <TouchableOpacity onPress={() => setImageVisible(true)} activeOpacity={0.9}>
+          <Image source={{ uri: imageUri }} style={styles.image} resizeMode="cover" />
+        </TouchableOpacity>
       )}
 
       {/* FOOTER */}
@@ -327,15 +442,68 @@ function PostCard({ item, theme }: { item: any; theme: any }) {
             </Text>
           </TouchableOpacity>
 
+          {/* COMMENT BUTTON */}
+          <TouchableOpacity
+            style={styles.likeBtn}
+            onPress={() => {
+              setCommentsVisible(!commentsVisible);
+              if (!commentsVisible) loadComments();
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chatbubble-outline" size={20} color={theme.subtext} />
+            <Text style={[styles.likeCount, { color: theme.subtext }]}>{comments.length}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.likeBtn} onPress={() => setShareVisible(true)} activeOpacity={0.7}>
             <Ionicons name="paper-plane-outline" size={21} color={theme.subtext} />
           </TouchableOpacity>
         </View>
-
         <Text style={[styles.time, { color: theme.subtext }]}>
           {item.created_at ? new Date(item.created_at).toLocaleString() : ""}
         </Text>
       </View>
+
+      {/* COMMENT SECTION */}
+      {commentsVisible && (
+        <View style={[commentStyles.section, { borderTopColor: theme.background }]}>
+          {loadingComments ? (
+            <ActivityIndicator size="small" color={theme.subtext} style={{ marginVertical: 8 }} />
+          ) : comments.length === 0 ? (
+            <Text style={[commentStyles.noComments, { color: theme.subtext }]}>
+              No comments yet. Be the first!
+            </Text>
+          ) : (
+            comments.map((c) => (
+              <View key={c.id} style={commentStyles.commentRow}>
+                <Text style={[commentStyles.commentUser, { color: theme.text }]}>@{c.username} </Text>
+                <Text style={[commentStyles.commentText, { color: theme.text }]}>{c.content}</Text>
+              </View>
+            ))
+          )}
+          <View style={[commentStyles.inputRow, { backgroundColor: theme.background }]}>
+            <TextInput
+              style={[commentStyles.input, { color: theme.text }]}
+              placeholder="Write a comment..."
+              placeholderTextColor={theme.subtext}
+              value={commentText}
+              onChangeText={setCommentText}
+              multiline
+            />
+            <TouchableOpacity
+              onPress={handlePostComment}
+              disabled={postingComment || !commentText.trim()}
+              activeOpacity={0.7}
+            >
+              {postingComment ? (
+                <ActivityIndicator size="small" color="#6C63FF" />
+              ) : (
+                <Ionicons name="send" size={20} color={commentText.trim() ? "#6C63FF" : theme.subtext} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       <ShareModal
         visible={shareVisible}
@@ -343,6 +511,34 @@ function PostCard({ item, theme }: { item: any; theme: any }) {
         post={item}
         theme={theme}
       />
+
+      {/* FULLSCREEN IMAGE MODAL */}
+      {imageUri && (
+        <Modal
+          visible={imageVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setImageVisible(false)}
+          statusBarTranslucent
+        >
+          <View style={imageModalStyles.overlay}>
+            <TouchableOpacity
+              style={imageModalStyles.closeBtn}
+              onPress={() => setImageVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close" size={22} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, width: "100%", justifyContent: "center", alignItems: "center" }}
+              activeOpacity={1}
+              onPress={() => setImageVisible(false)}
+            >
+              <Image source={{ uri: imageUri }} style={imageModalStyles.fullImage} resizeMode="contain" />
+            </TouchableOpacity>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -416,18 +612,15 @@ export default function Home() {
 
   const fetchFeed = async () => {
     try {
-      // ✅ FIX: Always send auth token so the backend knows who's viewing
       const token = await AsyncStorage.getItem("access_token");
       const headers: Record<string, string> = token
         ? { Authorization: `Bearer ${token}` }
         : {};
-
       const res = await fetch(`${API_URL}/feed`, { headers });
       const data = await res.json();
       const withLikes = await Promise.all(
         data.map(async (post: any) => {
           try {
-            // ✅ FIX: Pass token here too so is_liked reflects the current user
             const likesRes = await fetch(`${API_URL}/posts/${post.id}/likes`, { headers });
             const likesData = await likesRes.json();
             return { ...post, likes_count: likesData.likes ?? 0, is_liked: likesData.is_liked ?? false };
@@ -479,57 +672,19 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: 60 },
-
-  // ── Profile Header ──
   profileHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth,
   },
   header: { fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },
-  profileInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  profileTextGroup: {
-    alignItems: "flex-end",
-  },
-  profileName: {
-    fontSize: 13,
-    fontWeight: "700",
-    maxWidth: 120,
-  },
-  profileHandle: {
-    fontSize: 11,
-    maxWidth: 120,
-  },
-  profileAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 2,
-  },
-  profileAvatarFallback: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  profileAvatarInitial: {
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  profileAvatarSkeleton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#e0e0e0",
-    opacity: 0.4,
-  },
-
-  // ── Post Card ──
+  profileInfo: { flexDirection: "row", alignItems: "center", gap: 10 },
+  profileTextGroup: { alignItems: "flex-end" },
+  profileName: { fontSize: 13, fontWeight: "700", maxWidth: 120 },
+  profileHandle: { fontSize: 11, maxWidth: 120 },
+  profileAvatar: { width: 38, height: 38, borderRadius: 19, borderWidth: 2 },
+  profileAvatarFallback: { justifyContent: "center", alignItems: "center" },
+  profileAvatarInitial: { fontSize: 15, fontWeight: "800" },
+  profileAvatarSkeleton: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#e0e0e0", opacity: 0.4 },
   post: { borderWidth: 1, borderRadius: 12, padding: 14, marginHorizontal: 16, marginBottom: 12, marginTop: 12 },
   postHeader: { flexDirection: "row", alignItems: "center", marginBottom: 10, gap: 10 },
   avatar: { width: 36, height: 36, borderRadius: 18 },
@@ -545,46 +700,17 @@ const styles = StyleSheet.create({
   time: { fontSize: 11 },
   empty: { textAlign: "center", fontSize: 14 },
   emptyFeed: { alignItems: "center", marginTop: 60 },
-
-  // ── Share Modal ──
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
   modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, minHeight: 300 },
   handleBar: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 16 },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  backButtonText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
+  backButton: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
+  backButtonText: { fontSize: 13, fontWeight: "600" },
   modalTitle: { fontSize: 16, fontWeight: "700" },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  closeButton: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   searchBox: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 12 },
   searchInput: { flex: 1, fontSize: 14 },
-  mutualRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
+  mutualRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   mutualAvatar: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
   mutualAvatarImg: { width: 42, height: 42, borderRadius: 21 },
   mutualInitial: { fontSize: 16, fontWeight: "700" },

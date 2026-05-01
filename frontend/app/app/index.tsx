@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity } from "react-nativ
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // const API_URL = "https://sda-app-backend.onrender.com";
 import React, { useState, useCallback, useEffect } from "react";
-
+import { Stack } from "expo-router";
 
 const API_URL = "http://192.168.100.22:8000"
 // import React, { useState } from "react";
@@ -53,7 +53,7 @@ const handleLogin = async () => {
     await AsyncStorage.setItem("refresh_token", data.refresh_token);
 
     console.log("✅ Login success");
-    router.replace("/profile");
+    router.replace("/(tabs)/profile");
 
   } catch (error) {
     console.log("❌ Error:", error);
@@ -61,8 +61,9 @@ const handleLogin = async () => {
   }
 };
   return (
-    
+   
     <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
       <Text style={styles.logo}>Unifi</Text>
 
      <TextInput
@@ -99,7 +100,7 @@ const handleLogin = async () => {
         Don't have an account?{" "}
         <Text
     style={{ color: "#40a6d8" }}
-    onPress={() => router.push("/signup")}
+    onPress={() => router.push("signup")}
   >
     Sign up.
   </Text>

@@ -573,51 +573,50 @@ def get_likes(post_id: str, db: Session = Depends(get_db)):
 
 # ── COMMENTS ─────────────────────────────────────────────
 
-# @app.post("/posts/{post_id}/comment")
-# def create_comment(
-#     post_id: str,
-#     comment: CommentCreate,
-#     db: Session = Depends(get_db),
-#     current_user: User = Depends(get_current_user),
-# ):
-#     new_comment = Comment(
-#         id=str(uuid.uuid4()),
-#         post_id=post_id,
-#         author_id=current_user.id,
-#         content=comment.content,
-#         parent_id=comment.parent_id,
-#     )
-#     db.add(new_comment)
-#     db.commit()
-#     db.refresh(new_comment)
+# UNCOMMENT THIS:
+@app.post("/posts/{post_id}/comment")
+def create_comment(
+    post_id: str,
+    comment: CommentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    new_comment = Comment(
+        id=str(uuid.uuid4()),
+        post_id=post_id,
+        author_id=current_user.id,
+        content=comment.content,
+        parent_id=comment.parent_id,
+    )
+    db.add(new_comment)
+    db.commit()
+    db.refresh(new_comment)
+    return {
+        "message": "Comment added",
+        "comment": {
+            "id": new_comment.id,
+            "content": new_comment.content,
+            "post_id": new_comment.post_id,
+            "author_id": new_comment.author_id,
+            "parent_id": new_comment.parent_id,
+            "created_at": new_comment.created_at,
+        },
+    }
 
-#     return {
-#         "message": "Comment added",
-#         "comment": {
-#             "id": new_comment.id,
-#             "content": new_comment.content,
-#             "post_id": new_comment.post_id,
-#             "author_id": new_comment.author_id,
-#             "parent_id": new_comment.parent_id,
-#             "created_at": new_comment.created_at,
-#         },
-#     }
-
-
-# @app.get("/posts/{post_id}/comments")
-# def get_comments(post_id: str, db: Session = Depends(get_db)):
-#     comments = db.query(Comment).filter(Comment.post_id == post_id).all()
-#     return [
-#         {
-#             "id": c.id,
-#             "content": c.content,
-#             "author_id": c.author_id,
-#             "parent_id": c.parent_id,
-#             "created_at": c.created_at,
-#         }
-#         for c in comments
-#     ]
-
+# UNCOMMENT THIS:
+@app.get("/posts/{post_id}/comments")
+def get_comments(post_id: str, db: Session = Depends(get_db)):
+    comments = db.query(Comment).filter(Comment.post_id == post_id).all()
+    return [
+        {
+            "id": c.id,
+            "content": c.content,
+            "author_id": c.author_id,
+            "parent_id": c.parent_id,
+            "created_at": c.created_at,
+        }
+        for c in comments
+    ]
 
 @app.get("/search")
 def search_users(query: str, db: Session = Depends(get_db)):

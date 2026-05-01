@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
+import { Stack } from "expo-router";
 
 // const API_URL = "https://sda-app-backend.onrender.com";
 // const API_URL = "http://192.168.100.22:8000"
-const API_URL = "http://192.168.56.1:8000"
+const API_URL = "http://192.168.100.22:8000"
 
 export default function Signup() {
   const router = useRouter();
@@ -53,6 +54,8 @@ const [dateOfBirth,setdateOfBirth]=useState("")
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+      
       <Text style={styles.logo}>Unifi</Text>
 
       <TextInput
