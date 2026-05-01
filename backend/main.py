@@ -1027,3 +1027,34 @@ def delete_user(
     db.commit()
  
     return {"message": "Account deleted successfully"}
+@app.post("/forgot-password")
+def forgot_password(email: str = Form(...), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="No account found with this email")
+
+    token = create_verification_token(email)  # reuse your existing function
+    reset_link = f"http://127.0.0.1:8000/reset-password?token={token}"
+
+    # For now just return the link (until you configure email sending)
+    return {"message": "Password reset link generated", "reset_link": reset_link}
+
+
+@app.post("/reset-password")
+def reset_password(
+    token: str = Form(...),
+    new_password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    email = decode_verification_token(token)  # reuse your existing function
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.password = hash_password(new_password)
+    db.commit()
+
+    return {"message": "Password reset successful"}

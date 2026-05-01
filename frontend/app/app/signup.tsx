@@ -6,7 +6,7 @@ import { Stack } from "expo-router";
 
 // const API_URL = "https://sda-app-backend.onrender.com";
 // const API_URL = "http://192.168.100.22:8000"
-const API_URL = "http://192.168.100.22:8000"
+const API_URL = "http://127.0.0.1:8000";
 
 export default function Signup() {
   const router = useRouter();

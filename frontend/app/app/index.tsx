@@ -1,95 +1,84 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage";
-// const API_URL = "https://sda-app-backend.onrender.com";
-import React, { useState, useCallback, useEffect } from "react";
-import { Stack } from "expo-router";
-
-const API_URL = "http://192.168.100.22:8000"
-// import React, { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "expo-router";
 
-
+const API_URL = "http://127.0.0.1:8000";
 
 export default function HomePage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-
-const handleLogin = async () => {
-  try {
-    console.log("🔵 Logging in...");
-
-    // 1. Use FormData instead of a plain object
-    const formData = new FormData();
-    formData.append("username", username);
-    formData.append("password", password);
-
-    const response = await fetch(`${API_URL}/login`, {
-      method: "POST",
-      // 2. IMPORTANT: Remove "Content-Type": "application/json"
-      // When sending FormData, the browser/app sets the boundary automatically
-      body: formData, 
-    });
-
-    // console.log(" Status:", response.status);
-    const text = await response.text();
-    // console.log(" Raw response:", text);
-
-    let data;
+  const handleLogin = async () => {
     try {
-      data = JSON.parse(text);
-    } catch (e) {
-      alert("Server did not return JSON");
-      return;
+      console.log("🔵 Logging in...");
+
+      const formData = new FormData();
+      formData.append("username", username);
+      formData.append("password", password);
+
+      const response = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const text = await response.text();
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        alert("Server did not return JSON");
+        return;
+      }
+
+      if (!response.ok) {
+        alert(data.detail || "Login failed");
+        return;
+      }
+
+      await AsyncStorage.setItem("access_token", data.access_token);
+      await AsyncStorage.setItem("refresh_token", data.refresh_token);
+
+      console.log("✅ Login success");
+      router.replace("/profile");
+
+    } catch (error) {
+      console.log("❌ Error:", error);
+      alert("Something went wrong");
     }
+  };
 
-    if (!response.ok) {
-      alert(data.detail || "Login failed");
-      return;
-    }
-
-    await AsyncStorage.setItem("access_token", data.access_token);
-    await AsyncStorage.setItem("refresh_token", data.refresh_token);
-
-    console.log("✅ Login success");
-    router.replace("/(tabs)/profile");
-
-  } catch (error) {
-    console.log("❌ Error:", error);
-    alert("Something went wrong");
-  }
-};
   return (
-   
     <View style={styles.container}>
-      <Stack.Screen options={{ headerShown: false }} />
       <Text style={styles.logo}>Unifi</Text>
 
-     <TextInput
-  placeholder="Username"
-  style={styles.input}
-  value={username}
-  onChangeText={setUsername}
-/>
+      <TextInput
+        placeholder="Username"
+        style={styles.input}
+        value={username}
+        onChangeText={setUsername}
+      />
 
-<TextInput
-  placeholder="Password"
-  style={styles.input}
-  secureTextEntry
-  value={password}
-  onChangeText={setPassword}
-/>
-      {/* FIX: Wrap in View so text-align right works correctly */}
+      <TextInput
+        placeholder="Password"
+        style={styles.input}
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
+
       <View style={styles.forgotWrapper}>
-        <Text style={styles.forgot}>Forgot password?</Text>
+        <Text style={styles.forgot} onPress={() => router.push("/ForgotPassword")}>
+          Forgot password?
+        </Text>
       </View>
 
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
-  <Text style={styles.buttonText}>Log in</Text>
-</TouchableOpacity>
+        <Text style={styles.buttonText}>Log in</Text>
+      </TouchableOpacity>
 
-      {/* FIX: OR divider with lines */}
       <View style={styles.orWrapper}>
         <View style={styles.line} />
         <Text style={styles.or}>OR</Text>
@@ -98,12 +87,9 @@ const handleLogin = async () => {
 
       <Text style={styles.signup}>
         Don't have an account?{" "}
-        <Text
-    style={{ color: "#40a6d8" }}
-    onPress={() => router.push("signup")}
-  >
-    Sign up.
-  </Text>
+        <Text style={{ color: "#40a6d8" }} onPress={() => router.push("/signup")}>
+          Sign up.
+        </Text>
       </Text>
     </View>
   )
@@ -120,7 +106,7 @@ const styles = StyleSheet.create({
     color: "black",
     fontSize: 40,
     fontWeight: "bold",
-    fontStyle: "italic",       // FIX: logo looks italic/script in design
+    fontStyle: "italic",
     marginBottom: 50,
   },
   input: {
@@ -131,10 +117,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 10,
   },
-  // FIX: wrapper View makes textAlign work correctly
   forgotWrapper: {
     width: "85%",
-    alignItems: "flex-end",    // aligns the Text child to the right
+    alignItems: "flex-end",
     marginBottom: 10,
     marginTop: -2,
   },
@@ -153,7 +138,6 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "600",
   },
-  // FIX: OR with horizontal lines on both sides
   orWrapper: {
     flexDirection: "row",
     alignItems: "center",
