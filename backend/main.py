@@ -72,7 +72,7 @@ app.add_middleware(
     allow_origins=["*"],
     # allow_origins=[
     #     "http://localhost:8081",
-    #     "http://127.0.0.1:8081",  # ✅ add this
+    #     "http://127.0.0.1:8081",  
     #     "http://127.0.0.1:8082",
     #     "http://localhost:8000",
     #     "http://localhost:8082",
@@ -151,6 +151,11 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
     return user
 
+#added by ash
+def get_admin_user(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.username != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
 
 # ── AUTH ──────────────────────────────────────────────────
 @app.post("/signup")
@@ -204,6 +209,40 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
 #     db.commit()
 
 #     return HTMLResponse("<h2>Email verified successfully! You can now log in to NU Connect.</h2>")
+
+#password
+@app.post("/forgot-password")
+def forgot_password(email: str = Form(...), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="No account found with this email")
+
+    token = create_verification_token(email)  # reuse your existing function
+    reset_link = f"http://127.0.0.1:8000/reset-password?token={token}"
+
+    # For now just return the link (until you configure email sending)
+    return {"message": "Password reset link generated", "reset_link": reset_link}
+
+
+@app.post("/reset-password")
+def reset_password(
+    token: str = Form(...),
+    new_password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    email = decode_verification_token(token)  # reuse your existing function
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.password = hash_password(new_password)
+    db.commit()
+
+    return {"message": "Password reset successful"}
+
 
 
 @app.post("/login", response_model=TokenPair)
@@ -450,19 +489,19 @@ async def create_post(
     return {"message": "Post created", "post_id": new_post.id, "images": image_urls}
 
 
-# ✅ FIXED: now saves PostImage row so images appear in /users/{id}/posts
+
 @app.post("/post-with-image")
 def create_post_with_image(
     content: str = Form(...),
     file: UploadFile = File(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),  # ✅ now uses real auth, not raw author_id
+    current_user: User = Depends(get_current_user),  
 ):
     try:
         # 1. Create the Post row first
         post = Post(
             id=str(uuid.uuid4()),
-            author_id=current_user.id,  # ✅ from token, not form
+            author_id=current_user.id,  
             content=content,
             created_at=datetime.utcnow(),
         )
@@ -485,7 +524,7 @@ def create_post_with_image(
 
             image_url = f"/uploads/posts/{filename}"
 
-            # ✅ THIS WAS THE MISSING LINE — create PostImage row in DB
+            
             post_image = PostImage(
                 id=str(uuid.uuid4()),
                 post_id=post.id,
@@ -540,15 +579,26 @@ def like_post(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if db.query(PostLike).filter(PostLike.post_id == post_id, PostLike.user_id == current_user.id).first():
-        raise HTTPException(status_code=400, detail="Already liked")
+    existing = db.query(PostLike).filter(
+        PostLike.post_id == post_id,
+        PostLike.user_id == current_user.id
+    ).first()
 
-    db.add(PostLike(id=str(uuid.uuid4()), post_id=post_id, user_id=current_user.id))
-    db.commit()
+    if not existing:
+        db.add(PostLike(
+            id=str(uuid.uuid4()),
+            post_id=post_id,
+            user_id=current_user.id
+        ))
+        db.commit()
 
-    return {"message": "Post liked"}
+    count = db.query(PostLike).filter(PostLike.post_id == post_id).count()
 
-
+    return {
+        "message": "Post liked",
+        "likes": count,
+        "is_liked": True
+    }
 @app.delete("/posts/{post_id}/like")
 def unlike_post(
     post_id: str,
@@ -566,11 +616,23 @@ def unlike_post(
 
 
 @app.get("/posts/{post_id}/likes")
-def get_likes(post_id: str, db: Session = Depends(get_db)):
+def get_likes(
+    post_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     count = db.query(PostLike).filter(PostLike.post_id == post_id).count()
-    return {"post_id": post_id, "likes": count}
 
+    liked = db.query(PostLike).filter(
+        PostLike.post_id == post_id,
+        PostLike.user_id == current_user.id
+    ).first() is not None
 
+    return {
+        "post_id": post_id,
+        "likes": count,
+        "is_liked": liked
+    }
 # ── COMMENTS ─────────────────────────────────────────────
 
 # UNCOMMENT THIS:
@@ -980,6 +1042,100 @@ def delete_message(message_id: int, db: Session = Depends(get_db), current_user=
     return {"message": "deleted"}
 
 
+    #added by ash
+    # ── ADMIN ─────────────────────────────────────────────────
+
+@app.get("/admin/users")
+def admin_get_all_users(
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user),
+):
+    users = db.query(User).all()
+    return [
+        {
+            "id": u.id,
+            "username": u.username,
+            "full_name": u.full_name,
+            "email": u.email,
+            "profile_pic": u.profile_pic,
+        }
+        for u in users
+    ]
+
+
+@app.get("/admin/posts")
+def admin_get_all_posts(
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user),
+):
+    posts = db.query(Post).order_by(Post.created_at.desc()).all()
+    return [
+        {
+            "id": p.id,
+            "author_id": p.author_id,
+            "content": p.content,
+            "created_at": p.created_at,
+        }
+        for p in posts
+    ]
+
+
+@app.delete("/admin/posts/{post_id}")
+def admin_delete_post(
+    post_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user),
+):
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    db.query(PostImage).filter(PostImage.post_id == post_id).delete()
+    db.query(PostLike).filter(PostLike.post_id == post_id).delete()
+    db.query(Comment).filter(Comment.post_id == post_id).delete()
+    db.delete(post)
+    db.commit()
+    return {"message": f"Post {post_id} deleted by admin"}
+
+
+@app.delete("/admin/users/{user_id}")
+def admin_delete_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.username == "admin":
+        raise HTTPException(status_code=400, detail="Cannot delete admin account")
+    db.query(PostLike).filter(PostLike.user_id == user_id).delete()
+    db.query(Comment).filter(Comment.author_id == user_id).delete()
+    user_posts = db.query(Post).filter(Post.author_id == user_id).all()
+    for post in user_posts:
+        db.query(PostImage).filter(PostImage.post_id == post.id).delete()
+        db.query(PostLike).filter(PostLike.post_id == post.id).delete()
+        db.query(Comment).filter(Comment.post_id == post.id).delete()
+    db.query(Post).filter(Post.author_id == user_id).delete()
+    db.query(Follow).filter(
+        (Follow.follower_id == user_id) | (Follow.following_id == user_id)
+    ).delete()
+    participations = db.query(ConversationParticipant).filter(
+        ConversationParticipant.user_id == user_id
+    ).all()
+    for p in participations:
+        db.query(Message).filter(Message.conversation_id == p.conversation_id).delete()
+        db.query(ConversationParticipant).filter(
+            ConversationParticipant.conversation_id == p.conversation_id
+        ).delete()
+        db.query(Conversation).filter(Conversation.id == p.conversation_id).delete()
+    db.delete(user)
+    db.commit()
+    return {"message": f"User {user_id} deleted by admin"}
+
+
+
+# ── then this comes right after ───────────────────────────
+
 @app.delete("/users/{user_id}")
 def delete_user(
     user_id: str,
@@ -1027,34 +1183,3 @@ def delete_user(
     db.commit()
  
     return {"message": "Account deleted successfully"}
-@app.post("/forgot-password")
-def forgot_password(email: str = Form(...), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="No account found with this email")
-
-    token = create_verification_token(email)  # reuse your existing function
-    reset_link = f"http://127.0.0.1:8000/reset-password?token={token}"
-
-    # For now just return the link (until you configure email sending)
-    return {"message": "Password reset link generated", "reset_link": reset_link}
-
-
-@app.post("/reset-password")
-def reset_password(
-    token: str = Form(...),
-    new_password: str = Form(...),
-    db: Session = Depends(get_db),
-):
-    email = decode_verification_token(token)  # reuse your existing function
-    if not email:
-        raise HTTPException(status_code=400, detail="Invalid or expired token")
-
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    user.password = hash_password(new_password)
-    db.commit()
-
-    return {"message": "Password reset successful"}

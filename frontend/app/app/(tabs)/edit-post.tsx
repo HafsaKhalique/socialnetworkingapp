@@ -110,7 +110,7 @@ export default function EditPostScreen() {
         return;
       }
 
-      // ✅ go directly to profile instead of back()
+      
       router.replace("/(tabs)/profile");
     } catch (e) {
       console.error("❌ Edit error:", e);
@@ -153,13 +153,13 @@ export default function EditPostScreen() {
   };
 
   if (Platform.OS === "web") {
-    // ✅ window.confirm works on web
+    
     const confirmed = window.confirm(
       "Are you sure you want to delete this post? This cannot be undone."
     );
     if (confirmed) doDelete();
   } else {
-    // ✅ Alert.alert works on mobile
+    
     Alert.alert(
       "Delete Post",
       "Are you sure you want to delete this post? This cannot be undone.",

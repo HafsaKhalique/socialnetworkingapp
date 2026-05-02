@@ -41,7 +41,7 @@ type Post = {
 type User = {
   id: string;
   username: string;
-  email?: string; // ✅ added
+  email?: string; 
   full_name?: string;
   bio?: string;
   profile_pic?: string;

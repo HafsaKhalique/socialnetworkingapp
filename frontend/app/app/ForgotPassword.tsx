@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
       return
     }
 
-    // ✅ encode token so special characters survive the URL
+    
     router.push(`/ResetPassword?token=${encodeURIComponent(tokenValue)}`)
   }
 
@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
         </TouchableOpacity>
       ) : null}
 
-      <Text style={styles.back} onPress={() => router.back()}>← Back to Login</Text>
+      <Text style={styles.back} onPress={() => router.replace("/")}>← Back to Login</Text>
     </View>
   )
 }

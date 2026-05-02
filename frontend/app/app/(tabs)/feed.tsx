@@ -300,8 +300,8 @@ const commentStyles = StyleSheet.create({
 
 // ─── POST CARD ─────────────────────────────────────────
 function PostCard({ item, theme }: { item: any; theme: any }) {
-  const [isLiked, setIsLiked] = useState(item.is_liked);
-  const [likesCount, setLikesCount] = useState(item.likes_count);
+  const [isLiked, setIsLiked] = useState(!!item.is_liked);
+const [likesCount, setLikesCount] = useState(item.likes_count ?? 0);
   const [liking, setLiking] = useState(false);
   const [shareVisible, setShareVisible] = useState(false);
   const [imageVisible, setImageVisible] = useState(false);
@@ -311,8 +311,9 @@ function PostCard({ item, theme }: { item: any; theme: any }) {
   const [commentText, setCommentText] = useState("");
   const [loadingComments, setLoadingComments] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
-
+  
   const handleLike = async () => {
+    
     if (liking) return;
     const token = await AsyncStorage.getItem("access_token");
     if (!token) return;
@@ -452,7 +453,9 @@ function PostCard({ item, theme }: { item: any; theme: any }) {
             activeOpacity={0.7}
           >
             <Ionicons name="chatbubble-outline" size={20} color={theme.subtext} />
-            <Text style={[styles.likeCount, { color: theme.subtext }]}>{comments.length}</Text>
+            <Text style={[styles.likeCount, { color: theme.subtext }]}>
+              {comments.length > 0 ? comments.length : (item.comments_count ?? 0)}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.likeBtn} onPress={() => setShareVisible(true)} activeOpacity={0.7}>
@@ -618,18 +621,28 @@ export default function Home() {
         : {};
       const res = await fetch(`${API_URL}/feed`, { headers });
       const data = await res.json();
-      const withLikes = await Promise.all(
+      const withLikesAndComments = await Promise.all(
         data.map(async (post: any) => {
           try {
             const likesRes = await fetch(`${API_URL}/posts/${post.id}/likes`, { headers });
             const likesData = await likesRes.json();
-            return { ...post, likes_count: likesData.likes ?? 0, is_liked: likesData.is_liked ?? false };
+            
+            // Fetch comments to get the count
+            const commentsRes = await fetch(`${API_URL}/posts/${post.id}/comments`, { headers });
+            const commentsData = await commentsRes.json();
+            
+            return { 
+              ...post, 
+              likes_count: likesData.likes ?? 0, 
+              is_liked: likesData.is_liked ?? false,
+              comments_count: commentsData.length ?? 0
+            };
           } catch {
-            return { ...post, likes_count: 0, is_liked: false };
+            return { ...post, likes_count: 0, is_liked: false, comments_count: 0 };
           }
         })
       );
-      setPosts(withLikes);
+      setPosts(withLikesAndComments);
     } catch (e) {
       console.log("Feed error:", e);
     } finally {

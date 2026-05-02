@@ -13,13 +13,12 @@ import {
   StatusBar,
   Animated,
   Alert,
-} 
-from "react-native";
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
-const BASE_URL = "http://127.0.0.1:8000";
 
+const BASE_URL = "http://127.0.0.1:8000";
 
 interface ChatUser {
   user_id: string;
@@ -36,42 +35,8 @@ interface SearchUser {
   avatar: string | null;
 }
 
-// ── Token helpers ─────────────────────────────────────────
-
-async function getValidToken(): Promise<string | null> {
-  const access = await AsyncStorage.getItem("access_token");
-  const refresh = await AsyncStorage.getItem("refresh_token");
-
-  if (!access) return null;
-
-  try {
-    const payload = JSON.parse(atob(access.split(".")[1]));
-    const expiresAt = payload.exp * 1000;
-    const isExpired = Date.now() >= expiresAt - 30_000;
-
-    if (!isExpired) return access;
-
-    if (!refresh) return null;
-
-    const res = await fetch(`${BASE_URL}/refresh?refresh_token=${refresh}`, {
-      method: "POST",
-    });
-
-    if (!res.ok) {
-      console.warn("Token refresh failed:", res.status);
-      return null;
-    }
-
-    const data = await res.json();
-    await AsyncStorage.setItem("access_token", data.access_token);
-    if (data.refresh_token) {
-      await AsyncStorage.setItem("refresh_token", data.refresh_token);
-    }
-    return data.access_token;
-  } catch (e) {
-    console.error("Token parse/refresh error:", e);
-    return access;
-  }
+async function getToken(): Promise<string | null> {
+  return AsyncStorage.getItem("access_token");
 }
 
 async function apiFetch(path: string, token: string | null) {
@@ -82,7 +47,6 @@ async function apiFetch(path: string, token: string | null) {
   return res.json();
 }
 
-// ── Avatar ────────────────────────────────────────────────
 
 function Avatar({
   uri,
@@ -95,12 +59,7 @@ function Avatar({
   size?: number;
   theme: any;
 }) {
-  const initials = name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  const initials = name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
   const colors = ["#6C63FF", "#FF6584", "#43C6AC", "#F7971E", "#4facfe"];
   const color = colors[name.charCodeAt(0) % colors.length];
 
@@ -136,11 +95,9 @@ function Avatar({
   );
 }
 
-// ── Main Screen ───────────────────────────────────────────
-
 export default function MessagesScreen() {
   const router = useRouter();
-  const { theme, mode } = useTheme();
+  const { theme, mode } = useTheme(); 
 
   const [chats, setChats] = useState<ChatUser[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -156,7 +113,7 @@ export default function MessagesScreen() {
 
   useEffect(() => {
     (async () => {
-      const t = await getValidToken();
+      const t = await getToken();
       setToken(t);
       const userId = await AsyncStorage.getItem("user_id");
       setCurrentUserId(userId);
@@ -224,22 +181,18 @@ export default function MessagesScreen() {
   }, [searchQuery, token, currentUserId]);
 
   const handleChatPress = async (otherUserId: string, username: string) => {
+    if (!token) {
+      Alert.alert("Error", "You are not logged in.");
+      return;
+    }
+
     setOpeningChat(otherUserId);
 
     try {
-      const freshToken = await getValidToken();
-
-      if (!freshToken) {
-        Alert.alert("Session expired", "Please log in again.");
-        return;
-      }
-
-      setToken(freshToken);
-
       const res = await fetch(`${BASE_URL}/conversations/${otherUserId}`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${freshToken}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
@@ -247,17 +200,12 @@ export default function MessagesScreen() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         console.error("Conversation error:", err);
-        Alert.alert("Error", `Could not open conversation (${res.status})`);
+        Alert.alert("Error", "Could not open conversation.");
         return;
       }
 
       const data = await res.json();
       const conversationId: string = data.conversation_id;
-
-      if (!conversationId) {
-        Alert.alert("Error", "Server did not return a conversation ID.");
-        return;
-      }
 
       router.push({
         pathname: "/dm/[userId]",
@@ -265,14 +213,13 @@ export default function MessagesScreen() {
           userId: otherUserId,
           username,
           conversationId,
-          token: freshToken,
-          currentUserId: currentUserId ?? "",
-          otherUserId,            // ✅ THIS was missing — now the chat header can show who you're talking to
+          token,
+          userId2: currentUserId,
         },
       });
     } catch (e) {
       console.error("handleChatPress error:", e);
-      Alert.alert("Error", "Something went wrong. Check your connection.");
+      Alert.alert("Error", "Something went wrong.");
     } finally {
       setOpeningChat(null);
     }
@@ -334,20 +281,13 @@ export default function MessagesScreen() {
       onPress={() => handleChatPress(item.id, item.username)}
       disabled={openingChat === item.id}
     >
-      <Avatar
-        uri={item.avatar}
-        name={item.name || item.username}
-        size={44}
-        theme={theme}
-      />
+      <Avatar uri={item.avatar} name={item.name || item.username} size={44} theme={theme} />
       <View style={styles.searchInfo}>
         <Text style={[styles.searchUsername, { color: theme.text }]}>
           @{item.username}
         </Text>
         {item.name ? (
-          <Text style={[styles.searchName, { color: theme.subtext }]}>
-            {item.name}
-          </Text>
+          <Text style={[styles.searchName, { color: theme.subtext }]}>{item.name}</Text>
         ) : null}
       </View>
       {openingChat === item.id ? (
@@ -372,8 +312,10 @@ export default function MessagesScreen() {
       style={[styles.container, { backgroundColor: theme.background }]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
+      {/* STATUS BAR */}
       <StatusBar barStyle={mode === "dark" ? "light-content" : "dark-content"} />
 
+      {/* HEADER */}
       <View style={styles.header}>
         <View>
           <Text style={[styles.headerTitle, { color: theme.text }]}>Messages</Text>
@@ -390,6 +332,7 @@ export default function MessagesScreen() {
         </View>
       </View>
 
+      {/* SEARCH BAR */}
       <View
         style={[
           styles.searchBar,
@@ -424,6 +367,7 @@ export default function MessagesScreen() {
         )}
       </View>
 
+      {/* CONTENT */}
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         {isSearching ? (
           <View style={styles.section}>
@@ -431,17 +375,11 @@ export default function MessagesScreen() {
               {loadingSearch
                 ? "Searching…"
                 : searchResults.length > 0
-                ? `${searchResults.length} mutual connection${
-                    searchResults.length !== 1 ? "s" : ""
-                  } found`
+                ? `${searchResults.length} mutual connection${searchResults.length !== 1 ? "s" : ""} found`
                 : "No mutual connections found"}
             </Text>
             {loadingSearch ? (
-              <ActivityIndicator
-                color={theme.text}
-                style={{ marginTop: 40 }}
-                size="large"
-              />
+              <ActivityIndicator color={theme.text} style={{ marginTop: 40 }} size="large" />
             ) : searchResults.length === 0 ? (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyEmoji}>🔍</Text>
@@ -458,9 +396,7 @@ export default function MessagesScreen() {
                 keyExtractor={(item) => item.id}
                 renderItem={renderSearchItem}
                 ItemSeparatorComponent={() => (
-                  <View
-                    style={[styles.separator, { backgroundColor: theme.card }]}
-                  />
+                  <View style={[styles.separator, { backgroundColor: theme.card }]} />
                 )}
                 showsVerticalScrollIndicator={false}
               />
@@ -469,11 +405,7 @@ export default function MessagesScreen() {
         ) : (
           <View style={styles.section}>
             {loadingChats ? (
-              <ActivityIndicator
-                color={theme.text}
-                style={{ marginTop: 60 }}
-                size="large"
-              />
+              <ActivityIndicator color={theme.text} style={{ marginTop: 60 }} size="large" />
             ) : chats.length === 0 ? (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyEmoji}>💬</Text>
@@ -494,12 +426,7 @@ export default function MessagesScreen() {
                   keyExtractor={(item) => item.user_id}
                   renderItem={renderChatItem}
                   ItemSeparatorComponent={() => (
-                    <View
-                      style={[
-                        styles.separator,
-                        { backgroundColor: theme.card },
-                      ]}
-                    />
+                    <View style={[styles.separator, { backgroundColor: theme.card }]} />
                   )}
                   showsVerticalScrollIndicator={false}
                 />
@@ -575,12 +502,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   chatInfo: { flex: 1 },
-  chatUsername: {
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 0.1,
-    marginBottom: 3,
-  },
+  chatUsername: { fontSize: 15, fontWeight: "700", letterSpacing: 0.1, marginBottom: 3 },
   chatPreview: { fontSize: 13, fontWeight: "400" },
   chatMeta: { alignItems: "flex-end", gap: 6 },
   chatTime: { fontSize: 11, fontWeight: "500" },
@@ -625,10 +547,5 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: "center",
   },
-  emptyBody: {
-    fontSize: 14,
-    textAlign: "center",
-    lineHeight: 22,
-    fontWeight: "400",
-  },
+  emptyBody: { fontSize: 14, textAlign: "center", lineHeight: 22, fontWeight: "400" },
 });
